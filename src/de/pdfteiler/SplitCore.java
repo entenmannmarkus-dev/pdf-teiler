@@ -688,7 +688,7 @@ public final class SplitCore {
             PDDocumentInformation info = new PDDocumentInformation();
             info.setTitle(title);
             info.setSubject(subject.length() > 2000 ? subject.substring(0, 2000) : subject);
-            info.setProducer("PDF-Splitter für Claude (Android)");
+            info.setProducer("Splitt-Tool (Android)");
             out.setDocumentInformation(info);
             OutputStream os = io.createOutput(part.file, "application/pdf");
             try { out.save(os); } finally { os.close(); }

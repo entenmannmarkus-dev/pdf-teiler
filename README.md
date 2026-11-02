@@ -1,4 +1,4 @@
-# PDF-Teiler für Claude
+# Splitt-Tool
 
 Teilt große PDFs (bis 1 GB) kapitelweise in Teile, die in Claude hochgeladen werden können.
 Seiten werden 1:1 übernommen, nichts wird verändert oder erfunden; jeder Teil wird bitgenau

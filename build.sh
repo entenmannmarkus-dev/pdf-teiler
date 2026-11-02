@@ -25,6 +25,6 @@ zipalign -f -p 4 build/apk/app.unsigned.apk build/apk/app.aligned.apk
 [ -f "$KEYSTORE" ] || keytool -genkeypair -keystore "$KEYSTORE" -storepass pdfteiler -keypass pdfteiler \
      -alias pdfteiler -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=PDF-Teiler, O=privat, C=DE" >/dev/null 2>&1
 apksigner sign --ks "$KEYSTORE" --ks-pass pass:pdfteiler --key-pass pass:pdfteiler --ks-key-alias pdfteiler \
-     --min-sdk-version 24 --out build/PDF-Teiler-fuer-Claude.apk build/apk/app.aligned.apk
-apksigner verify --print-certs build/PDF-Teiler-fuer-Claude.apk | head -2
-ls -la build/PDF-Teiler-fuer-Claude.apk
+     --min-sdk-version 24 --out build/Splitt-Tool.apk build/apk/app.aligned.apk
+apksigner verify --print-certs build/Splitt-Tool.apk | head -2
+ls -la build/Splitt-Tool.apk

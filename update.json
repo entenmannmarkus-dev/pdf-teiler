@@ -1,6 +1,6 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1",
-  "apkUrl": "https://github.com/entenmannmarkus-dev/pdf-teiler/releases/latest/download/PDF-Teiler-fuer-Claude.apk",
-  "notes": "Neu: Vorschau der Kapitel und geplanten Teile, Update-Knopf."
+  "versionCode": 3,
+  "versionName": "1.2",
+  "apkUrl": "https://github.com/entenmannmarkus-dev/pdf-teiler/releases/latest/download/Splitt-Tool.apk",
+  "notes": "Neuer Name: Splitt-Tool. Vorschau der Kapitel und Update-Knopf."
 }
