@@ -166,16 +166,17 @@ public class AppTest {
         setPdf.invoke(a, pdfUri);
         System.out.println("PDF-Anzeige: " + ((TextView) field(a, "tvPdf")).getText());
 
-        // Vorschau
-        button(a, "Vorschau").performClick();
+        // Vorschau läuft nach Auswahl automatisch
         waitFor(a, 120000);
-        AlertDialog d = ShadowAlertDialog.getLatestAlertDialog();
-        assertNotNull("Vorschau-Dialog fehlt", d);
-        System.out.println("VORSCHAU-TITEL: " + Shadows.shadowOf(d).getTitle());
         String log = ((TextView) field(a, "tvLog")).getText().toString();
         System.out.println("LOG nach Vorschau:\n" + log);
         assertTrue(log.contains("Vorschau fertig"));
-        d.dismiss();
+        ViewGroup pb = (ViewGroup) field(a, "previewBody");
+        StringBuilder sb = new StringBuilder();
+        dump(pb, sb, 0);
+        System.out.println("VORSCHAU-KASTEN:\n" + sb);
+        assertTrue(pb.getChildCount() > 5);
+        System.out.println("STATUS: " + ((TextView) field(a, "tvStatus")).getText());
 
         // Aufteilen
         set(a, "treeUri", DocumentsContract.buildTreeDocumentUri(AUTH, "root"));
@@ -273,6 +274,26 @@ public class AppTest {
         org.json.JSONObject o = Updater.fetchInfo();
         System.out.println("LIVE update.json: " + o);
         assertTrue(o.getInt("versionCode") >= 7);
+    }
+
+    static void dump(View v, StringBuilder sb, int depth) {
+        if (v instanceof TextView) sb.append(new String(new char[depth]).replace("\0", "  ")).append(((TextView) v).getText()).append('\n');
+        if (v instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++) dump(((ViewGroup) v).getChildAt(i), sb, depth + 1);
+    }
+
+    @Test public void autoInstallWhenUpdateFound() throws Exception {
+        Updater.API_URL = "http://127.0.0.1:8765/nope";
+        Updater.UPDATE_URL = "http://127.0.0.1:8765/update.json";
+        FolderProvider.base = new File(System.getProperty("java.io.tmpdir"));
+        org.robolectric.android.controller.ActivityController<MainActivity> ctl = Robolectric.buildActivity(MainActivity.class);
+        MainActivity a = ctl.create().start().get();
+        a.onCreateOptionsMenu(new RoboMenu(a));
+        ctl.resume();
+        android.content.pm.PackageInstaller pi = a.getPackageManager().getPackageInstaller();
+        for (int i = 0; i < 80 && pi.getAllSessions().isEmpty(); i++) { Thread.sleep(100); ShadowLooper.runUiThreadTasksIncludingDelayedTasks(); }
+        System.out.println("AUTO-SESSIONS: " + pi.getAllSessions().size() + " Knopf: " + ((TextView) field(a, "updateView")).getText());
+        System.out.println("AUTO-LOG: " + ((TextView) field(a, "tvLog")).getText());
+        assertFalse(pi.getAllSessions().isEmpty());
     }
 
     static void deleteTree(File f) {

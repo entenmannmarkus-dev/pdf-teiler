@@ -140,6 +140,16 @@ public final class SplitCore {
     }
 
     // ================================================================== Ablauf
+    /** Strukturierte Vorschau für die Anzeige in der App. */
+    public static final class PreviewData {
+        public int pages;
+        public String source = "", note;
+        public final List<String[]> chapters = new ArrayList<String[]>();   // {Titel, "S. a–b", "n S."}
+        public final List<String[]> parts = new ArrayList<String[]>();      // {Kopfzeile, Kapitelzeilen}
+        public final List<String> warnings = new ArrayList<String>();
+    }
+    public PreviewData lastPreview;
+
     /** Vorschau: ermittelt Kapitel und geplante Teile, schreibt aber nichts. */
     public String preview() throws IOException {
         try {
@@ -169,6 +179,18 @@ public final class SplitCore {
                  .append(" (").append(p.pages()).append(" S., ca. ").append(human(measure(p.start(), p.end()))).append(")\n");
                 for (String l : chapterLines(p)) b.append("   ").append(l).append('\n');
             }
+            PreviewData pd = new PreviewData();
+            pd.pages = n; pd.source = chapterSource; pd.note = planNote;
+            for (Chapter c : chapters)
+                pd.chapters.add(new String[]{(c.parent != null ? c.parent + " › " : "") + c.title,
+                        "S. " + (c.start + 1) + "–" + (c.end + 1), c.pages() + " S."});
+            for (int i = 0; i < parts.size(); i++) {
+                Part p = parts.get(i);
+                pd.parts.add(new String[]{"Teil " + (i + 1) + " · S. " + (p.start() + 1) + "–" + (p.end() + 1) + " · "
+                        + p.pages() + " S. · ca. " + human(measure(p.start(), p.end())), join(chapterLines(p), "\n")});
+            }
+            pd.warnings.addAll(result.warnings);
+            lastPreview = pd;
             if (!result.warnings.isEmpty()) {
                 b.append("\nHINWEISE\n");
                 for (String w : result.warnings) b.append("⚠ ").append(w).append('\n');

@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
     private long pdfSize = -1;
     private TextView tvPdf, tvDir, tvLog, tvStatus;
     private EditText etMb, etPages;
-    private CheckBox cbOne, cbVerify, cbDetect;
+    private CheckBox cbOne, cbVerify, cbDetect, cbAutoUpdate;
     private Button bPdf, bDir, bStart, bCancel, bPreview;
     private android.view.MenuItem miUpdate;
     private ProgressBar bar;
@@ -92,21 +92,68 @@ public class MainActivity extends Activity {
     // ------------------------------------------------------------------ Oberfläche
     private int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density + 0.5f); }
 
+    // Farben: Dunkelblau
+    static final int BLUE = 0xFF0D2B5E, BLUE2 = 0xFF1E4B8F, BLUE_LIGHT = 0xFFE8EEF8, BG = 0xFFF2F5FA,
+            BORDER = 0xFFD3DCEC, TEXT = 0xFF1A2333, MUTED = 0xFF5F6B7D;
+
     private TextView label(LinearLayout parent, String text, int sizeSp, boolean bold) {
         TextView t = new TextView(this);
         t.setText(text);
         t.setTextSize(sizeSp);
+        t.setTextColor(bold ? BLUE : TEXT);
         if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setPadding(0, dp(10), 0, dp(4));
+        t.setPadding(0, dp(6), 0, dp(4));
         parent.addView(t);
         return t;
+    }
+
+    private android.graphics.drawable.GradientDrawable round(int fill, int stroke, int radius) {
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+        g.setColor(fill);
+        g.setCornerRadius(dp(radius));
+        if (stroke != 0) g.setStroke(dp(1), stroke);
+        return g;
+    }
+
+    /** Kasten (Karte) mit Überschrift. */
+    private LinearLayout card(LinearLayout parent, String title, float weight) {
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setBackground(round(Color.WHITE, BORDER, 14));
+        c.setPadding(dp(16), dp(12), dp(16), dp(14));
+        c.setElevation(dp(2));
+        LinearLayout.LayoutParams lp = weight > 0
+                ? new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, weight)
+                : new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(dp(6), dp(6), dp(6), dp(6));
+        parent.addView(c, lp);
+        if (title != null) {
+            TextView t = new TextView(this);
+            t.setText(title);
+            t.setTextSize(17);
+            t.setTypeface(Typeface.DEFAULT_BOLD);
+            t.setTextColor(BLUE);
+            t.setPadding(0, 0, 0, dp(6));
+            c.addView(t);
+        }
+        return c;
     }
 
     private Button button(LinearLayout parent, String text) {
         Button b = new Button(this);
         b.setText(text);
         b.setAllCaps(false);
-        parent.addView(b);
+        b.setTextColor(Color.WHITE);
+        b.setTextSize(15);
+        android.graphics.drawable.StateListDrawable sl = new android.graphics.drawable.StateListDrawable();
+        sl.addState(new int[]{-android.R.attr.state_enabled}, round(0xFFB8C2D3, 0, 10));
+        sl.addState(new int[]{android.R.attr.state_pressed}, round(BLUE2, 0, 10));
+        sl.addState(new int[]{}, round(BLUE, 0, 10));
+        b.setBackground(sl);
+        b.setPadding(dp(16), dp(10), dp(16), dp(10));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, dp(4), dp(8), dp(4));
+        parent.addView(b, lp);
         return b;
     }
 
@@ -115,6 +162,7 @@ public class MainActivity extends Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         TextView t = new TextView(this);
         t.setText(hint);
+        t.setTextColor(MUTED);
         box.addView(t);
         EditText e = new EditText(this);
         e.setInputType(InputType.TYPE_CLASS_NUMBER | (decimal ? InputType.TYPE_NUMBER_FLAG_DECIMAL : 0));
@@ -127,73 +175,107 @@ public class MainActivity extends Activity {
         return e;
     }
 
+    private LinearLayout previewCard, previewBody;
+    private ScrollView outerScroll;
+
     private void buildUi() {
         ScrollView outer = new ScrollView(this);
+        outerScroll = outer;
         outer.setFillViewport(true);
+        outer.setBackgroundColor(BG);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(12), dp(20), dp(20));
+        root.setPadding(dp(10), dp(8), dp(10), dp(20));
         outer.addView(root);
 
-        TextView intro = label(root, "Teilt große PDFs (bis 1 GB) kapitelweise in Teile, die du in Claude hochladen kannst. "
-                + "Die Seiten werden 1:1 übernommen – nichts wird verändert oder hinzugefügt.", 15, false);
-        intro.setTextColor(Color.DKGRAY);
+        TextView intro = new TextView(this);
+        intro.setText("Teilt große PDFs (bis 1 GB) kapitelweise in Teile für Claude. Die Seiten werden 1:1 übernommen – "
+                + "nichts wird verändert oder hinzugefügt.");
+        intro.setTextColor(MUTED);
+        intro.setTextSize(14);
+        intro.setPadding(dp(8), dp(4), dp(8), dp(4));
+        root.addView(intro);
 
-        label(root, "1. PDF-Datei", 18, true);
-        bPdf = button(root, "PDF auswählen …");
-        tvPdf = label(root, "Noch keine Datei gewählt.", 14, false);
+        // Eingang und Ausgang nebeneinander
+        LinearLayout io = new LinearLayout(this);
+        io.setOrientation(LinearLayout.HORIZONTAL);
+        io.setBaselineAligned(false);
+        root.addView(io);
+        LinearLayout in = card(io, "📄  Eingang: PDF", 1);
+        bPdf = button(in, "PDF auswählen …");
+        tvPdf = label(in, "Noch keine Datei gewählt.", 14, false);
+        LinearLayout outC = card(io, "📁  Ausgang: Zielordner", 1);
+        bDir = button(outC, "Ordner auswählen …");
+        tvDir = label(outC, "Noch kein Ordner gewählt. Darin entsteht ein Unterordner „<Name>_teile“.", 14, false);
 
-        label(root, "2. Zielordner für die Teile", 18, true);
-        bDir = button(root, "Ordner auswählen …");
-        tvDir = label(root, "Noch kein Ordner gewählt. Darin wird ein Unterordner „<Name>_teile“ angelegt.", 14, false);
+        // Kapitel-Vorschau
+        previewCard = card(root, "📑  Kapitel-Vorschau", 0);
+        previewBody = new LinearLayout(this);
+        previewBody.setOrientation(LinearLayout.VERTICAL);
+        previewCard.addView(previewBody);
+        TextView ph = label(previewBody, "Wähle eine PDF – die Kapitel und die geplanten Teile erscheinen dann automatisch hier.", 14, false);
+        ph.setTextColor(MUTED);
 
-        label(root, "3. Grenzen pro Teil", 18, true);
+        // Einstellungen
+        LinearLayout set = card(root, "⚙  Grenzen pro Teil", 0);
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        root.addView(row);
+        set.addView(row);
         etMb = number(row, "max. MB", prefs.getString("mb", "30"), true);
         etPages = number(row, "max. Seiten", prefs.getString("pages", "100"), false);
-        TextView hint = label(root, "Claude-Grenzen: Chat max. 500 MB und 1000 Seiten pro PDF, Projekt max. 30 MB. Bilder wertet "
-                + "Claude nur bis 100 Seiten aus. Standard 30 MB / 100 Seiten passt überall.", 13, false);
-        hint.setTextColor(Color.GRAY);
-
-        cbOne = new CheckBox(this); cbOne.setText("Jedes Kapitel in eigene Datei"); root.addView(cbOne);
+        TextView hint = label(set, "Claude: Chat max. 500 MB und 1000 Seiten pro PDF, Projekt max. 30 MB. Bilder wertet "
+                + "Claude nur bis 100 Seiten aus. Standard 30 MB / 100 Seiten passt überall.", 12, false);
+        hint.setTextColor(MUTED);
+        cbOne = new CheckBox(this); cbOne.setText("Jedes Kapitel in eigene Datei"); set.addView(cbOne);
         cbOne.setChecked(prefs.getBoolean("one", false));
-        cbDetect = new CheckBox(this); cbDetect.setText("Überschriften suchen, wenn die PDF keine Lesezeichen hat"); root.addView(cbDetect);
+        cbDetect = new CheckBox(this); cbDetect.setText("Überschriften suchen, wenn die PDF keine Lesezeichen hat"); set.addView(cbDetect);
         cbDetect.setChecked(prefs.getBoolean("detect", true));
-        cbVerify = new CheckBox(this); cbVerify.setText("Jeden Teil mit dem Original vergleichen (empfohlen)"); root.addView(cbVerify);
+        cbVerify = new CheckBox(this); cbVerify.setText("Jeden Teil mit dem Original vergleichen (empfohlen)"); set.addView(cbVerify);
         cbVerify.setChecked(prefs.getBoolean("verify", true));
+        cbAutoUpdate = new CheckBox(this); cbAutoUpdate.setText("Updates automatisch installieren"); set.addView(cbAutoUpdate);
+        cbAutoUpdate.setChecked(prefs.getBoolean("autoupdate", true));
+        cbAutoUpdate.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(android.widget.CompoundButton b, boolean on) { prefs.edit().putBoolean("autoupdate", on).apply(); }
+        });
 
+        // Start
+        LinearLayout run = card(root, "▶  Aufteilen", 0);
         LinearLayout btns = new LinearLayout(this);
         btns.setOrientation(LinearLayout.HORIZONTAL);
-        btns.setPadding(0, dp(12), 0, 0);
-        root.addView(btns);
-        bPreview = button(btns, "Vorschau");
+        run.addView(btns);
+        bPreview = button(btns, "Vorschau aktualisieren");
         bStart = button(btns, "▶  Aufteilen");
         bCancel = button(btns, "Abbrechen");
         bCancel.setEnabled(false);
-
         bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         bar.setMax(1000);
-        root.addView(bar, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24)));
-        tvStatus = label(root, "", 14, true);
+        bar.setProgressTintList(android.content.res.ColorStateList.valueOf(BLUE));
+        run.addView(bar, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(24)));
+        tvStatus = label(run, "", 14, true);
+        resultBox = new LinearLayout(this);
+        resultBox.setOrientation(LinearLayout.VERTICAL);
+        run.addView(resultBox);
 
+        // Protokoll
+        LinearLayout logC = card(root, "Protokoll", 0);
         logScroll = new ScrollView(this);
         tvLog = new TextView(this);
         tvLog.setTypeface(Typeface.MONOSPACE);
         tvLog.setTextSize(12);
+        tvLog.setTextColor(TEXT);
         tvLog.setTextIsSelectable(true);
         tvLog.setPadding(dp(8), dp(8), dp(8), dp(8));
-        tvLog.setBackgroundColor(0xFFF2F2F2);
+        tvLog.setBackground(round(BLUE_LIGHT, 0, 8));
         logScroll.addView(tvLog);
-        resultBox = new LinearLayout(this);
-        resultBox.setOrientation(LinearLayout.VERTICAL);
-        root.addView(resultBox);
-        root.addView(logScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(320)));
+        logC.addView(logScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(240)));
 
-        buildFeedback(root);
+        buildFeedback(card(root, null, 0));
         setContentView(outer);
-        if (getActionBar() != null) getActionBar().setSubtitle("Version " + Updater.currentVersionName(this));
+        if (getActionBar() != null) {
+            getActionBar().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(BLUE));
+            getActionBar().setSubtitle("Version " + Updater.currentVersionName(this));
+        }
+        getWindow().setStatusBarColor(0xFF081D40);
 
         bPdf.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
             Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -219,12 +301,7 @@ public class MainActivity extends Activity {
     private CheckBox cbLog;
 
     private void buildFeedback(LinearLayout root) {
-        View line = new View(this);
-        line.setBackgroundColor(0xFFDDDDDD);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
-        lp.topMargin = dp(20);
-        root.addView(line, lp);
-        label(root, "Verbesserungsvorschlag an Claude", 18, true);
+        label(root, "💬  Verbesserungsvorschlag an Claude", 17, true);
         etFeedback = new EditText(this);
         etFeedback.setHint("Was soll besser werden? Was hat nicht funktioniert?");
         etFeedback.setMinLines(3);
@@ -343,10 +420,15 @@ public class MainActivity extends Activity {
         if (now - lastCheck < 10 * 60 * 1000L) return;   // höchstens alle 10 Minuten
         lastCheck = now;
         updater.checkSilently(new Updater.Callback() {
-            public void available(String versionName, String notes) {
+            public void available(String versionName, String notes, String apkUrl) {
                 availableVersion = versionName;
                 styleUpdateButton();
-                log("Neue Version " + versionName + " verfügbar – oben rechts auf „Update“ tippen.");
+                if (cbAutoUpdate.isChecked() && (worker == null || !worker.isAlive())) {
+                    log("Neue Version " + versionName + " gefunden – wird automatisch installiert …");
+                    updater.download(apkUrl, true);
+                } else {
+                    log("Neue Version " + versionName + " verfügbar – oben rechts auf „Update“ tippen.");
+                }
             }
         });
     }
@@ -408,6 +490,7 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {
         } finally { if (c != null) c.close(); }
         tvPdf.setText(pdfName + (pdfSize >= 0 ? "  (" + SplitCore.human(pdfSize) + ")" : ""));
+        if (worker == null || !worker.isAlive()) start(true);   // Kapitel-Vorschau automatisch
     }
 
     // ------------------------------------------------------------------ Ablauf
@@ -476,12 +559,14 @@ public class MainActivity extends Activity {
         tmp.mkdirs();
         try {
             SplitCore.Io io = new AndroidIo(getContentResolver(), pdfUri, null, tmp);
-            final String text = new SplitCore(io, listener(), s).preview();
+            SplitCore core = new SplitCore(io, listener(), s);
+            core.preview();
+            final SplitCore.PreviewData pd = core.lastPreview;
             main.post(new Runnable() { public void run() {
                 setBusy(false);
                 bar.setProgress(1000);
-                tvStatus.setText("Vorschau fertig");
-                showPreview(text);
+                tvStatus.setText("Vorschau fertig – " + pd.parts.size() + " Teile geplant");
+                renderPreview(pd);
             }});
         } catch (final Throwable e) {
             failed(e);
@@ -490,22 +575,58 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void showPreview(String text) {
-        ScrollView sv = new ScrollView(this);
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextSize(14);
-        tv.setTextIsSelectable(true);
-        tv.setPadding(dp(20), dp(12), dp(20), dp(12));
-        sv.addView(tv);
-        new AlertDialog.Builder(this)
-            .setTitle("Vorschau: " + pdfName)
-            .setView(sv)
-            .setPositiveButton("Jetzt aufteilen", new android.content.DialogInterface.OnClickListener() {
-                public void onClick(android.content.DialogInterface d, int w) { start(false); }
-            })
-            .setNegativeButton("Schließen", null)
-            .show();
+    /** Zeigt Kapitel und geplante Teile als Kästen im Hauptfenster. */
+    private void renderPreview(SplitCore.PreviewData pd) {
+        previewBody.removeAllViews();
+        TextView info = label(previewBody, pdfName + " · " + pd.pages + " Seiten · " + pd.chapters.size()
+                + " Kapitel\nErkannt über: " + pd.source, 14, false);
+        info.setTextColor(MUTED);
+        if (pd.note != null) {
+            TextView rec = label(previewBody, "Empfehlung: " + pd.note.replace("\n", " · "), 12, false);
+            rec.setTextColor(MUTED);
+        }
+        // Kapitel
+        TextView kh = label(previewBody, "Kapitel", 15, true);
+        kh.setPadding(0, dp(8), 0, dp(2));
+        int shown = 0;
+        for (String[] c : pd.chapters) {
+            if (shown++ >= 200) { label(previewBody, "… und " + (pd.chapters.size() - 200) + " weitere", 13, false); break; }
+            LinearLayout r = new LinearLayout(this);
+            r.setOrientation(LinearLayout.HORIZONTAL);
+            r.setBackground(round(BLUE_LIGHT, 0, 8));
+            r.setPadding(dp(10), dp(6), dp(10), dp(6));
+            TextView t = new TextView(this);
+            t.setText(c[0]); t.setTextColor(TEXT); t.setTextSize(14);
+            r.addView(t, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+            TextView pg = new TextView(this);
+            pg.setText(c[1] + "  (" + c[2] + ")"); pg.setTextColor(MUTED); pg.setTextSize(13);
+            r.addView(pg);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, dp(2), 0, dp(2));
+            previewBody.addView(r, lp);
+        }
+        // Geplante Teile
+        TextView th = label(previewBody, "Geplante Teile (" + pd.parts.size() + ")", 15, true);
+        th.setPadding(0, dp(12), 0, dp(2));
+        for (String[] p : pd.parts) {
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setBackground(round(Color.WHITE, BLUE2, 10));
+            box.setPadding(dp(12), dp(8), dp(12), dp(8));
+            TextView h = new TextView(this);
+            h.setText(p[0]); h.setTypeface(Typeface.DEFAULT_BOLD); h.setTextColor(BLUE); h.setTextSize(14);
+            box.addView(h);
+            TextView b = new TextView(this);
+            b.setText(p[1]); b.setTextColor(TEXT); b.setTextSize(13);
+            box.addView(b);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, dp(3), 0, dp(3));
+            previewBody.addView(box, lp);
+        }
+        for (String w : pd.warnings) {
+            TextView t = label(previewBody, "⚠ " + w, 13, false);
+            t.setTextColor(0xFFB00020);
+        }
     }
 
     private SplitCore.Listener listener() {

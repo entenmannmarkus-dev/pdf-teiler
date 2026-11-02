@@ -34,7 +34,7 @@ final class Updater {
     /** Frische Quelle ohne CDN-Verzögerung (GitHub-API, 60 Abfragen/Stunde ohne Anmeldung). */
     static String API_URL = "https://api.github.com/repos/" + REPO + "/contents/update.json?ref=main";
 
-    interface Callback { void available(String versionName, String notes); }
+    interface Callback { void available(String versionName, String notes, String apkUrl); }
 
     /** Liest update.json – zuerst über die API (sofort aktuell), sonst über raw.githubusercontent.com. */
     static JSONObject fetchInfo() throws Exception {
@@ -53,8 +53,9 @@ final class Updater {
                 final int code = o.getInt("versionCode");
                 final String name = o.optString("versionName", String.valueOf(code));
                 final String notes = o.optString("notes", "");
+                final String apk = o.getString("apkUrl");
                 if (code > currentVersionCode(act))
-                    main.post(new Runnable() { public void run() { cb.available(name, notes); } });
+                    main.post(new Runnable() { public void run() { cb.available(name, notes, apk); } });
             } catch (Exception ignored) { /* offline – beim nächsten Start wieder */ }
         }}, "update-check").start();
     }
@@ -106,7 +107,7 @@ final class Updater {
                         .setTitle("Neue Version " + name)
                         .setMessage((notes.isEmpty() ? "" : notes + "\n\n") + "Jetzt herunterladen und installieren?")
                         .setPositiveButton("Aktualisieren", new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface d, int w) { download(apk); }
+                            public void onClick(DialogInterface d, int w) { download(apk, false); }
                         })
                         .setNegativeButton("Später", null)
                         .show();
@@ -131,8 +132,10 @@ final class Updater {
         } catch (Exception e) { return true; }
     }
 
-    private void download(final String url) {
+    /** quiet = automatische Installation im Hintergrund (ohne eigene Dialoge). */
+    void download(final String url, final boolean quiet) {
         if (!canInstall()) {
+            if (quiet) return; // Erlaubnis fehlt noch – Knopf bleibt rot, Nutzer tippt selbst
             new AlertDialog.Builder(act)
                 .setTitle("Erlaubnis nötig")
                 .setMessage("Damit die App sich selbst aktualisieren kann, muss Android ihr einmalig erlauben, "
@@ -154,7 +157,7 @@ final class Updater {
         pd.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         pd.setMax(100);
         pd.setCancelable(false);
-        pd.show();
+        if (!quiet) pd.show();
         new Thread(new Runnable() { public void run() {
             HttpURLConnection c = null;
             try {
@@ -164,6 +167,11 @@ final class Updater {
                 PackageInstaller.SessionParams sp = new PackageInstaller.SessionParams(
                         PackageInstaller.SessionParams.MODE_FULL_INSTALL);
                 sp.setAppPackageName(act.getPackageName());
+                // Android 12+: Updates ohne Rückfrage, sobald die App sich einmal selbst installiert hat
+                if (Build.VERSION.SDK_INT >= 31) {
+                    try { sp.getClass().getMethod("setRequireUserAction", int.class).invoke(sp, 2); }
+                    catch (Exception ignored) { }
+                }
                 int id = pi.createSession(sp);
                 PackageInstaller.Session s = pi.openSession(id);
                 InputStream in = c.getInputStream();
@@ -191,7 +199,7 @@ final class Updater {
             } catch (final Exception e) {
                 main.post(new Runnable() { public void run() {
                     pd.dismiss();
-                    dialog("Update fehlgeschlagen", String.valueOf(e.getMessage()));
+                    if (!quiet) dialog("Update fehlgeschlagen", String.valueOf(e.getMessage()));
                 }});
             } finally {
                 if (c != null) c.disconnect();
