@@ -1,6 +1,6 @@
 {
-  "versionCode": 14,
-  "versionName": "2.3",
-  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-2.3.apk",
-  "notes": "Neuer Knopf „An Teams senden“: schickt alle Teile mit Quellen-Karte direkt an Microsoft Teams."
+  "versionCode": 15,
+  "versionName": "2.4",
+  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-2.4.apk",
+  "notes": "Teams-Chat in der App: Chats ansehen, Nachrichten lesen und schreiben (Arbeits-/Schulkonto, einmalige Einrichtung siehe TEAMS.md)."
 }

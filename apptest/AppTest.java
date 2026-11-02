@@ -312,6 +312,88 @@ public class AppTest {
         assertNull(Shadows.shadowOf(a).getNextStartedActivity());
     }
 
+    static void waitFor(java.util.concurrent.Callable<Boolean> c, int secs) throws Exception {
+        for (int i = 0; i < secs * 10; i++) {
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+            if (c.call()) return;
+            Thread.sleep(100);
+        }
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+    }
+
+    static String screen(android.app.Activity a) {
+        StringBuilder sb = new StringBuilder();
+        dump(a.getWindow().getDecorView(), sb, 0);
+        return sb.toString();
+    }
+
+    /** Teams gegen einen nachgebauten Microsoft-Server (Port 8766): Einrichten, Anmelden, Chats, Lesen, Senden. */
+    @Test public void teamsChatFullFlow() throws Exception {
+        Teams.LOGIN = "http://127.0.0.1:8766/";
+        Teams.GRAPH = "http://127.0.0.1:8766/v1.0";
+        MainActivity m = start(new File(System.getProperty("java.io.tmpdir")));
+        m.getSharedPreferences("teams", 0).edit().clear().commit();
+        button(m, "Teams-Chat öffnen").performClick();
+        Intent ti = Shadows.shadowOf(m).getNextStartedActivity();
+        assertEquals(TeamsActivity.class.getName(), ti.getComponent().getClassName());
+        final TeamsActivity t = Robolectric.buildActivity(TeamsActivity.class).create().start().resume().visible().get();
+        System.out.println("EINRICHTEN:\n" + screen(t));
+        List<View> edits = new ArrayList<View>();
+        collect(t.getWindow().getDecorView(), android.widget.EditText.class, edits);
+        ((android.widget.EditText) edits.get(0)).setText("11111111-2222-3333-4444-555555555555");
+        buttonIn(t, "Speichern").performClick();
+        buttonIn(t, "Anmelden").performClick();
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() { return screen(t).contains("ABCD-1234"); }}, 10);
+        System.out.println("CODE:\n" + screen(t));
+        assertTrue(screen(t).contains("ABCD-1234"));
+        buttonIn(t, "Code kopieren").performClick();
+        Intent ch = Shadows.shadowOf(t).getNextStartedActivity();
+        assertEquals("com.android.chrome", ch.getPackage());
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() { return screen(t).contains("Anna Test"); }}, 20);
+        System.out.println("CHATS:\n" + screen(t));
+        assertTrue(screen(t).contains("Angemeldet als Markus"));
+        assertTrue(screen(t).contains("Projekt Buch"));
+        // Chat öffnen: auf den Kasten mit „Anna Test“ tippen
+        View box = parentOf(t.getWindow().getDecorView(), "Anna Test");
+        box.performClick();
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() { return screen(t).contains("Hallo Markus"); }}, 10);
+        System.out.println("CHAT:\n" + screen(t));
+        assertTrue(screen(t).contains("📎 plan.pdf"));
+        edits.clear();
+        collect(t.getWindow().getDecorView(), android.widget.EditText.class, edits);
+        ((android.widget.EditText) edits.get(edits.size() - 1)).setText("Teile kommen gleich <ok>");
+        buttonIn(t, "Senden").performClick();
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() { return screen(t).contains("Teile kommen gleich <ok>"); }}, 10);
+        Thread.sleep(500); ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        System.out.println("NACH SENDEN:\n" + screen(t) + " kinder=" + ((android.widget.LinearLayout) field(t, "msgBox")).getChildCount());
+        assertTrue(screen(t).contains("Teile kommen gleich <ok>"));
+    }
+
+    static void collect(View v, Class<?> c, List<View> out) {
+        if (c.isInstance(v)) out.add(v);
+        if (v instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++) collect(((ViewGroup) v).getChildAt(i), c, out);
+    }
+
+    static Button buttonIn(android.app.Activity a, String text) {
+        List<View> bs = new ArrayList<View>();
+        collect(a.getWindow().getDecorView(), Button.class, bs);
+        for (View b : bs) if (((Button) b).getText().toString().contains(text)) return (Button) b;
+        throw new AssertionError("Knopf fehlt: " + text);
+    }
+
+    static View parentOf(View v, String text) {
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                View c = g.getChildAt(i);
+                if (c instanceof TextView && text.equals(((TextView) c).getText().toString())) return g;
+                View r = parentOf(c, text);
+                if (r != null) return r;
+            }
+        }
+        return null;
+    }
+
     static void deleteTree(File f) {
         File[] k = f.listFiles();
         if (k != null) for (File x : k) deleteTree(x);

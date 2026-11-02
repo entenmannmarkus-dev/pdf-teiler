@@ -263,6 +263,13 @@ public class MainActivity extends Activity {
         logScroll.addView(tvLog);
         logC.addView(logScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(240)));
 
+        LinearLayout tc = card(root, "👥  Microsoft Teams", 0);
+        TextView th = label(tc, "Teams-Chats lesen und schreiben (Arbeits- oder Schulkonto).", 13, false);
+        th.setTextColor(MUTED);
+        Button bt = button(tc, "Teams-Chat öffnen");
+        bt.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+            startActivity(new Intent(MainActivity.this, TeamsActivity.class));
+        }});
         buildFeedback(card(root, null, 0));
         setContentView(outer);
         if (getActionBar() != null) {

@@ -39,6 +39,8 @@ Maven-Spiegel für die App-Tests (`~/.m2/settings.xml`), da maven.google.com/dl.
 2. Tests:
    - Kern am Desktop: `jvmtest/Cli.java` mit Apache PDFBox 2.0.32 (Paketnamen per `sed` von
      `com.tom_roush.pdfbox` auf `org.apache.pdfbox` umstellen).
+   - Teams-Test braucht `python3 apptest/fake_microsoft.py` (Port 8766) und für Update-Tests einen
+     `python3 -m http.server 8765` mit einer `update.json` (versionCode 99).
    - App-Oberfläche: `apptest/` (Robolectric 3.8, JDK 8): `pom.xml` + `AppTest.java` in ein
      Maven-Projekt legen, `JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 mvn test`.
 3. `version.txt` erhöhen (VERSION_CODE +1, VERSION_NAME +0.1).
