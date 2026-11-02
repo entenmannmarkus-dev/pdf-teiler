@@ -145,11 +145,19 @@ final class Updater {
                     + "Installation – dort „Aktualisieren“ wählen.");
         } catch (Exception e) {
             try {
-                act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                openInChrome(act, url);
             } catch (Exception e2) {
                 dialog("Update", "Bitte diese Adresse im Browser öffnen:\n" + url);
             }
         }
+    }
+
+    /** Öffnet eine Web-Adresse in Google Chrome; ist Chrome nicht installiert, im Standard-Browser. */
+    static void openInChrome(Activity a, String url) {
+        Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        i.setPackage("com.android.chrome");
+        try { a.startActivity(i); }
+        catch (Exception noChrome) { i.setPackage(null); a.startActivity(i); }
     }
 
     static long lastDownloadId = -1;

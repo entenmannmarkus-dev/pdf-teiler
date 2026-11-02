@@ -324,7 +324,7 @@ public class MainActivity extends Activity {
                 String url = "https://github.com/" + Updater.REPO + "/issues/new?labels=vorschlag&title="
                         + java.net.URLEncoder.encode("Vorschlag: " + title, "UTF-8")
                         + "&body=" + java.net.URLEncoder.encode(body, "UTF-8");
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                Updater.openInChrome(MainActivity.this, url);
             } catch (Exception e) { alert("Nicht möglich", String.valueOf(e.getMessage())); }
         }});
         app.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {

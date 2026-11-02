@@ -229,6 +229,7 @@ public class AppTest {
         Intent gh = Shadows.shadowOf(a).getNextStartedActivity();
         System.out.println("FEEDBACK-URL: " + gh.getData().toString().substring(0, 140));
         assertTrue(gh.getData().toString().startsWith("https://github.com/entenmannmarkus-dev/pdf-teiler/issues/new"));
+        assertEquals("com.android.chrome", gh.getPackage());
         button(a, "In Claude-App").performClick();
         Intent ca = Shadows.shadowOf(a).getNextStartedActivity();
         System.out.println("CLAUDE-APP: " + ca.getAction() + " pkg=" + ca.getPackage() + " text=" + ca.getStringExtra(Intent.EXTRA_TEXT).substring(0, 60));

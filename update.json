@@ -1,6 +1,6 @@
 {
-  "versionCode": 12,
-  "versionName": "2.1",
-  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-2.1.apk",
-  "notes": "Update per Knopf: Tipp auf den roten Update-Knopf lädt die neue Version in der App und öffnet danach die Android-Installation (mit Rückfrage, nie still)."
+  "versionCode": 13,
+  "versionName": "2.2",
+  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-2.2.apk",
+  "notes": "Links (Vorschlag senden, Update-Ausweichweg) öffnen jetzt in Google Chrome."
 }
