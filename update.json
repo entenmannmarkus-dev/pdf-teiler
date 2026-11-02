@@ -1,6 +1,6 @@
 {
-  "versionCode": 3,
-  "versionName": "1.2",
+  "versionCode": 4,
+  "versionName": "1.3",
   "apkUrl": "https://github.com/entenmannmarkus-dev/pdf-teiler/releases/latest/download/Splitt-Tool.apk",
-  "notes": "Neuer Name: Splitt-Tool. Vorschau der Kapitel und Update-Knopf."
+  "notes": "Update-Knopf jetzt oben rechts."
 }

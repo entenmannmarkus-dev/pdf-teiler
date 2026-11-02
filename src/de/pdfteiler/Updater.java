@@ -88,8 +88,11 @@ final class Updater {
             } catch (final Exception e) {
                 main.post(new Runnable() { public void run() {
                     pd.dismiss();
-                    dialog("Update nicht möglich", "Die Update-Information konnte nicht geladen werden.\n"
-                            + "Bitte Internetverbindung prüfen.\n\n(" + e.getMessage() + ")");
+                    String m = String.valueOf(e.getMessage());
+                    if (m.contains("404")) dialog("Update nicht möglich", "Die Update-Quelle auf GitHub ("
+                            + REPO + ") ist noch nicht eingerichtet.");
+                    else dialog("Update nicht möglich", "Die Update-Information konnte nicht geladen werden.\n"
+                            + "Bitte Internetverbindung prüfen.\n\n(" + m + ")");
                 }});
             }
         }}).start();

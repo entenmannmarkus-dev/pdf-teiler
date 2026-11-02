@@ -49,6 +49,7 @@ public class MainActivity extends Activity {
     private EditText etMb, etPages;
     private CheckBox cbOne, cbVerify, cbDetect;
     private Button bPdf, bDir, bStart, bCancel, bPreview;
+    private android.view.MenuItem miUpdate;
     private ProgressBar bar;
     private ScrollView logScroll;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -186,21 +187,8 @@ public class MainActivity extends Activity {
         logScroll.addView(tvLog);
         root.addView(logScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(320)));
 
-        LinearLayout upd = new LinearLayout(this);
-        upd.setOrientation(LinearLayout.HORIZONTAL);
-        upd.setGravity(Gravity.CENTER_VERTICAL);
-        upd.setPadding(0, dp(16), 0, 0);
-        root.addView(upd);
-        Button bUpdate = button(upd, "⟳  Nach Update suchen");
-        TextView ver = new TextView(this);
-        ver.setText("   Version " + Updater.currentVersionName(this));
-        ver.setTextColor(Color.GRAY);
-        upd.addView(ver);
-        bUpdate.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
-            if (worker != null && worker.isAlive()) { alert("Bitte warten", "Erst nach dem Aufteilen aktualisieren."); return; }
-            updater.check();
-        }});
         setContentView(outer);
+        if (getActionBar() != null) getActionBar().setSubtitle("Version " + Updater.currentVersionName(this));
 
         bPdf.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
             Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -219,6 +207,24 @@ public class MainActivity extends Activity {
         bCancel.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
             cancel.set(true); log("Breche ab …");
         }});
+    }
+
+    // ------------------------------------------------------------------ Update-Knopf oben rechts
+    @Override
+    public boolean onCreateOptionsMenu(android.view.Menu menu) {
+        miUpdate = menu.add(0, 1, 0, "⟳ Update");
+        miUpdate.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS | android.view.MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(android.view.MenuItem item) {
+        if (item.getItemId() == 1) {
+            if (worker != null && worker.isAlive()) { alert("Bitte warten", "Erst nach dem Aufteilen aktualisieren."); return true; }
+            updater.check();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     // ------------------------------------------------------------------ Auswahl
@@ -279,6 +285,7 @@ public class MainActivity extends Activity {
 
     private void setBusy(boolean busy) {
         bStart.setEnabled(!busy); bPdf.setEnabled(!busy); bDir.setEnabled(!busy); bPreview.setEnabled(!busy);
+        if (miUpdate != null) miUpdate.setEnabled(!busy);
         bCancel.setEnabled(busy);
         if (busy) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
