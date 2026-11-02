@@ -52,6 +52,7 @@ public class MainActivity extends Activity {
     private android.view.MenuItem miUpdate;
     private ProgressBar bar;
     private ScrollView logScroll;
+    private LinearLayout resultBox;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final AtomicBoolean cancel = new AtomicBoolean(false);
     private Thread worker;
@@ -185,6 +186,9 @@ public class MainActivity extends Activity {
         tvLog.setPadding(dp(8), dp(8), dp(8), dp(8));
         tvLog.setBackgroundColor(0xFFF2F2F2);
         logScroll.addView(tvLog);
+        resultBox = new LinearLayout(this);
+        resultBox.setOrientation(LinearLayout.VERTICAL);
+        root.addView(resultBox);
         root.addView(logScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(320)));
 
         setContentView(outer);
@@ -326,6 +330,7 @@ public class MainActivity extends Activity {
                     + "etwa so viel freien Platz wie die PDF groß ist.");
 
         tvLog.setText("");
+        resultBox.removeAllViews();
         tvStatus.setText(preview ? "Vorschau wird erstellt …" : "Läuft … (App bitte geöffnet lassen)");
         bar.setProgress(0);
         cancel.set(false);
@@ -394,6 +399,70 @@ public class MainActivity extends Activity {
         }});
     }
 
+    // ------------------------------------------------------------------ Ergebnis teilen
+    private void showResults(SplitCore.Result r, AndroidIo io) {
+        resultBox.removeAllViews();
+        TextView h = label(resultBox, "Teile verschicken (z. B. an die Claude-App)", 18, true);
+        h.setPadding(0, dp(12), 0, dp(4));
+        final java.util.ArrayList<Uri> all = new java.util.ArrayList<Uri>();
+        for (String f : r.files) { Uri u = io.uri(f); if (u != null) all.add(u); }
+        Button bAll = button(resultBox, "Alle " + all.size() + " Teile teilen");
+        bAll.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+            if (all.size() > 20) alert("Hinweis", "Claude nimmt höchstens 20 Dateien pro Chat an. Bitte die Teile einzeln oder in Gruppen schicken.");
+            else shareMany(all);
+        }});
+        for (int i = 0; i < r.files.size(); i++) {
+            final Uri u = io.uri(r.files.get(i));
+            if (u == null) continue;
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(0, dp(4), 0, dp(4));
+            TextView t = new TextView(this);
+            t.setText(r.labels.get(i));
+            t.setTextSize(13);
+            row.addView(t, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+            Button b = new Button(this);
+            b.setText("Teilen");
+            b.setAllCaps(false);
+            row.addView(b);
+            final String name = r.files.get(i);
+            b.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { shareOne(u, name); }});
+            resultBox.addView(row);
+        }
+    }
+
+    private void shareOne(Uri u, String name) {
+        Intent i = new Intent(Intent.ACTION_SEND);
+        i.setType("application/pdf");
+        i.putExtra(Intent.EXTRA_STREAM, u);
+        i.putExtra(Intent.EXTRA_TITLE, name);
+        i.setClipData(android.content.ClipData.newRawUri(name, u));
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startShare(i);
+    }
+
+    private void shareMany(java.util.ArrayList<Uri> uris) {
+        Intent i = new Intent(Intent.ACTION_SEND_MULTIPLE);
+        i.setType("application/pdf");
+        i.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+        android.content.ClipData cd = android.content.ClipData.newRawUri("Teil", uris.get(0));
+        for (int k = 1; k < uris.size(); k++) cd.addItem(new android.content.ClipData.Item(uris.get(k)));
+        i.setClipData(cd);
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startShare(i);
+    }
+
+    private void startShare(Intent i) {
+        try {
+            Intent c = Intent.createChooser(i, "Teil senden an …");
+            c.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(c);
+        } catch (Exception e) {
+            alert("Teilen nicht möglich", String.valueOf(e.getMessage()));
+        }
+    }
+
     private void work(SplitCore.Settings s) {
         final ContentResolver cr = getContentResolver();
         File tmp = new File(getCacheDir(), "arbeit");
@@ -405,7 +474,7 @@ public class MainActivity extends Activity {
             final Uri dir = DocumentsContract.createDocument(cr, treeDoc, DocumentsContract.Document.MIME_TYPE_DIR, dirName);
             if (dir == null) throw new IOException("Ordner konnte nicht angelegt werden.");
             log("Ausgabeordner: " + dirName);
-            SplitCore.Io io = new AndroidIo(cr, pdfUri, dir, tmp);
+            final AndroidIo io = new AndroidIo(cr, pdfUri, dir, tmp);
             SplitCore.Listener l = new SplitCore.Listener() {
                 public void log(String m) { MainActivity.this.log(m); }
                 public void progress(final int d, final int t) {
@@ -418,6 +487,7 @@ public class MainActivity extends Activity {
             main.post(new Runnable() { public void run() {
                 setBusy(false);
                 bar.setProgress(1000);
+                showResults(r, io);
                 String msg = r.parts + " Teile im Ordner „" + folder + "“ gespeichert.\n\n"
                         + "Übersicht mit Kapiteln: 00_UEBERSICHT.md";
                 if (!r.errors.isEmpty()) {
@@ -500,5 +570,7 @@ public class MainActivity extends Activity {
         }
 
         public File tempDir() { return tmp; }
+
+        Uri uri(String name) { return files.get(name); }
     }
 }

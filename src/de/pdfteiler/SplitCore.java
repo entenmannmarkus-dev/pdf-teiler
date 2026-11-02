@@ -115,6 +115,8 @@ public final class SplitCore {
         public List<String> warnings = new ArrayList<String>();
         public List<String> errors = new ArrayList<String>();
         public String overview;
+        public List<String> files = new ArrayList<String>();
+        public List<String> labels = new ArrayList<String>();
     }
 
     // ------------------------------------------------------------------ Felder
@@ -214,6 +216,12 @@ public final class SplitCore {
             }
             if (expected != n) result.errors.add("Nicht alle Seiten übernommen (" + expected + " von " + n + ")");
             result.parts = parts.size();
+            for (int i = 0; i < parts.size(); i++) {
+                Part p = parts.get(i);
+                result.files.add(p.file);
+                result.labels.add("Teil " + (i + 1) + " · S. " + (p.start() + 1) + "–" + (p.end() + 1) + " · " + human(p.size)
+                        + "\n" + shortLabel(p));
+            }
             writeOverview(parts, chapters, (System.currentTimeMillis() - t0) / 1000);
             ui.log("Fertig: " + parts.size() + " Teile (" + (System.currentTimeMillis() - t0) / 1000 + " s)");
             return result;
