@@ -1,6 +1,13 @@
 {
-  "versionCode": 15,
-  "versionName": "2.4",
-  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-2.4.apk",
-  "notes": "Teams-Chat in der App: Chats ansehen, Nachrichten lesen und schreiben (Arbeits-/Schulkonto, einmalige Einrichtung siehe TEAMS.md)."
+  "versionCode": 16,
+  "versionName": "2.5",
+  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-2.5.apk",
+  "notes": "Neu: Splitt-Tool für Windows (ohne Adminrechte). Android unverändert.",
+  "windows": {
+    "versionCode": 16,
+    "versionName": "2.5",
+    "notes": "Neu: Splitt-Tool für Windows (ohne Adminrechte). Android unverändert.",
+    "jarUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/windows/splitt-tool-16.jar",
+    "zipUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/windows/Splitt-Tool-Windows.zip"
+  }
 }

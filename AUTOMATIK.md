@@ -19,7 +19,7 @@ Vorschläge entstehen in der App über „Verbesserungsvorschlag an Claude → S
 
 ```sh
 apt-get install -y --no-install-recommends android-sdk-platform-23 aapt apksigner zipalign \
-    dalvik-exchange openjdk-8-jdk-headless
+    dalvik-exchange openjdk-8-jdk-headless gcc-mingw-w64-x86-64 binutils-mingw-w64-x86-64 xvfb
 git clone https://github.com/entenmannmarkus-dev/pdf-teiler /home/claude/android-app
 cd /home/claude/android-app
 cp /mnt/project-files/pdf-splitter/android/signing/keystore.jks keystore.jks
@@ -32,6 +32,15 @@ Maven-Spiegel für die App-Tests (`~/.m2/settings.xml`), da maven.google.com/dl.
 <settings><mirrors><mirror><id>gcs</id><mirrorOf>*</mirrorOf>
 <url>https://maven-central.storage-download.googleapis.com/maven2</url></mirror></mirrors></settings>
 ```
+
+## Windows-Version
+
+`windows/` enthält das Splitt-Tool für Windows (Swing, gleicher Kern `SplitCore` mit Apache PDFBox, per `sed`
+übersetzt). Ohne Adminrechte: Ordner mit `Splitt-Tool.exe` (Starter, mingw-w64), `runtime/` (Temurin-JRE 21)
+und `app/splitt-tool-<VERSION_CODE>.jar`; der Starter nimmt immer die höchste Nummer. Updates laden nur die
+neue `.jar` aus `dist/windows/` (Abschnitt `windows` in `update.json`). `release.sh` baut sie mit, wenn
+`gcc-mingw-w64-x86-64` installiert ist; das Komplettpaket nur, wenn es fehlt oder `WIN_ZIP=1`.
+Oberflächen-Test: `windows/test/.../DesktopTest.java` unter `xvfb-run` (siehe Kopf der Datei).
 
 ## Ablauf je Vorschlag
 

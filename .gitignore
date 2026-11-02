@@ -1,3 +1,5 @@
 build/
 libs/
 *.jks
+windows/launcher/*.res
+windows/launcher/*.exe

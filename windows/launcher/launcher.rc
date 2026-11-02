@@ -1,0 +1,21 @@
+1 ICON "splitt-tool.ico"
+1 VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040704B0"
+    BEGIN
+      VALUE "FileDescription", "Splitt-Tool - PDFs fuer Claude aufteilen"
+      VALUE "ProductName", "Splitt-Tool"
+      VALUE "OriginalFilename", "Splitt-Tool.exe"
+      VALUE "FileVersion", "1.0"
+      VALUE "ProductVersion", "1.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0407, 1200
+  END
+END

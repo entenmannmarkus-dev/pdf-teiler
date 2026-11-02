@@ -1006,7 +1006,7 @@ public final class SplitCore {
     }
 
     // ================================================================== Claude-Projekt
-    static final String PROJECT_FILE = "00_CLAUDE_PROJEKT.md";
+    public static final String PROJECT_FILE = "00_CLAUDE_PROJEKT.md";
 
     /**
      * Quellen-Karte für ein Claude-Projekt: Projekt-Anweisung plus Index Kapitel → Teil → Seiten.
@@ -1061,7 +1061,7 @@ public final class SplitCore {
         return t.isEmpty() ? "ohne_Titel" : t;
     }
 
-    static String human(long n) {
+    public static String human(long n) {
         if (n < 1024) return n + " B";
         if (n < 1024L * 1024) return String.format(Locale.GERMANY, "%.1f KB", n / 1024.0);
         if (n < 1024L * 1024 * 1024) return String.format(Locale.GERMANY, "%.1f MB", n / 1048576.0);

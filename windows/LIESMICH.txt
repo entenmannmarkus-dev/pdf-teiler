@@ -1,0 +1,24 @@
+SPLITT-TOOL FÜR WINDOWS
+=======================
+
+Teilt große PDFs (bis 1000 MB) kapitelweise in Teile, die Claude annimmt.
+Inhalte werden nie verändert: Seiten werden 1:1 kopiert und bitgenau geprüft.
+
+Keine Adminrechte nötig. Alles, was das Programm braucht (auch Java), liegt in diesem Ordner.
+
+STARTEN
+  Variante A (ohne Einrichten):  Splitt-Tool.exe doppelklicken.
+  Variante B (empfohlen):        Einrichten.cmd doppelklicken. Das kopiert den Ordner nach
+                                 %LOCALAPPDATA%\Programs\Splitt-Tool und legt Verknüpfungen
+                                 im Startmenü und auf dem Desktop an.
+
+WARNUNG BEIM ERSTEN START
+  Windows kennt das Programm nicht und zeigt evtl. „Der Computer wurde durch Windows geschützt“.
+  Dann: „Weitere Informationen“ → „Trotzdem ausführen“.
+  Auf Firmenrechnern kann die IT unbekannte Programme sperren – dann bitte die IT fragen.
+
+UPDATES
+  Der Knopf „Update“ oben rechts leuchtet rot, wenn es eine neue Version gibt.
+  Ein Klick lädt sie von GitHub in diesen Ordner und startet das Programm neu.
+
+Quellcode: https://github.com/entenmannmarkus-dev/pdf-teiler
