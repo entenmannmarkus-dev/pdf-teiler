@@ -234,7 +234,7 @@ public class AppTest {
         System.out.println("CLAUDE-APP: " + ca.getAction() + " pkg=" + ca.getPackage() + " text=" + ca.getStringExtra(Intent.EXTRA_TEXT).substring(0, 60));
     }
 
-    @Test public void updateOpensBrowserDownload() throws Exception {
+    @Test public void updateDownloadsInApp() throws Exception {
         Updater.API_URL = "http://127.0.0.1:8765/nope";
         Updater.UPDATE_URL = "http://127.0.0.1:8765/update.json";
         MainActivity a = start(new File(System.getProperty("java.io.tmpdir")));
@@ -250,10 +250,16 @@ public class AppTest {
         System.out.println("DIALOG1: " + Shadows.shadowOf(d).getTitle() + " | " + Shadows.shadowOf(d).getMessage());
         d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
-        Intent next = Shadows.shadowOf(a).getNextStartedActivity();
-        System.out.println("BROWSER: " + next.getAction() + " " + next.getData());
-        assertEquals(Intent.ACTION_VIEW, next.getAction());
-        assertTrue(next.getData().toString().endsWith(".apk"));
+        android.app.DownloadManager dm = (android.app.DownloadManager) a.getSystemService(android.content.Context.DOWNLOAD_SERVICE);
+        org.robolectric.shadows.ShadowDownloadManager sdm = Shadows.shadowOf(dm);
+        System.out.println("DOWNLOADS: " + sdm.getRequestCount() + " id=" + Updater.lastDownloadId);
+        assertEquals(1, sdm.getRequestCount());
+        android.app.DownloadManager.Request req = sdm.getRequest(Updater.lastDownloadId);
+        System.out.println("DOWNLOAD-URL: " + Shadows.shadowOf(req).getUri() + " mime=" + Shadows.shadowOf(req).getMimeType());
+        assertTrue(Shadows.shadowOf(req).getUri().toString().endsWith(".apk"));
+        AlertDialog d2 = ShadowAlertDialog.getLatestAlertDialog();
+        System.out.println("DIALOG2: " + Shadows.shadowOf(d2).getTitle());
+        assertEquals("Update wird geladen", String.valueOf(Shadows.shadowOf(d2).getTitle()));
         assertTrue(a.getPackageManager().getPackageInstaller().getAllSessions().isEmpty());
     }
 

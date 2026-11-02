@@ -44,7 +44,8 @@ Maven-Spiegel für die App-Tests (`~/.m2/settings.xml`), da maven.google.com/dl.
 3. `version.txt` erhöhen (VERSION_CODE +1, VERSION_NAME +0.1).
 4. `./release.sh "Was ist neu (kurz, deutsch)"` – baut, legt `dist/Splitt-Tool-<Version>.apk` ab,
    aktualisiert `update.json`, committet und pusht. Die App findet das Update beim nächsten Start,
-   der Knopf oben rechts leuchtet rot. Antippen lädt die APK im Browser, Markus installiert sie selbst.
-   Die App darf keine Pakete selbst installieren (keine REQUEST_INSTALL_PACKAGES-Berechtigung),
-   sonst meldet Play Protect sie als Schadsoftware.
+   der Knopf oben rechts leuchtet rot. Erst ein Tipp darauf lädt die APK (Android-Download-Manager) und
+   öffnet danach den normalen Android-Installer, der nachfragt. Markus hat das so gewünscht.
+   Nie still oder im Hintergrund installieren: kein PackageInstaller-Session-Code, keine Berechtigung
+   UPDATE_PACKAGES_WITHOUT_USER_ACTION (das löste in 1.8 eine Malware-Warnung aus).
 5. Im Issue kurz auf Deutsch antworten, was umgesetzt wurde, und es schließen.

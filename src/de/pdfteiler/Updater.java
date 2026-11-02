@@ -21,7 +21,8 @@ import java.net.URL;
 
 /**
  * Selbst-Aktualisierung: liest update.json aus dem öffentlichen GitHub-Repository,
- * und meldet eine neuere Version. Die APK wird im Browser geöffnet; die App installiert nichts selbst.
+ * und meldet eine neuere Version. Nur nach Tipp auf den Update-Knopf: Download per Android-Download-Manager,
+ * danach öffnet sich der normale Android-Installer mit Rückfrage. Nie still im Hintergrund.
  */
 final class Updater {
     static final String REPO = "entenmannmarkus-dev/pdf-teiler";
@@ -98,8 +99,7 @@ final class Updater {
                     }
                     new AlertDialog.Builder(act)
                         .setTitle("Neue Version " + name)
-                        .setMessage((notes.isEmpty() ? "" : notes + "\n\n") + "Die neue Version wird im Browser heruntergeladen. "
-                                + "Danach die Datei antippen und „Aktualisieren“ wählen.")
+                        .setMessage((notes.isEmpty() ? "" : notes + "\n\n") + "Jetzt herunterladen und installieren? Android fragt vor dem Aktualisieren noch einmal nach.")
                         .setPositiveButton("Aktualisieren", new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface d, int w) { download(apk, false); }
                         })
@@ -120,15 +120,103 @@ final class Updater {
     }
 
     /**
-     * Öffnet die neue APK im Browser. Die App installiert selbst nichts: Herunterladen und
-     * Installieren laufen über den Browser und den normalen Android-Installer, mit deiner Bestätigung.
+     * Lädt die neue APK mit dem Android-Download-Manager in den Ordner „Download“. Die App installiert
+     * nichts selbst und braucht keine Installations-Berechtigung: Ein Tipp auf die Download-Meldung
+     * öffnet den normalen Android-Installer, der vor dem Aktualisieren nachfragt.
+     * Geht das nicht (alte Android-Version), wird die Adresse im Browser geöffnet.
      */
     void download(final String url, final boolean quiet) {
+        if (!canInstall()) { askInstallPermission(); return; }
         try {
-            act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+            final android.app.DownloadManager dm =
+                    (android.app.DownloadManager) act.getSystemService(android.content.Context.DOWNLOAD_SERVICE);
+            String name = url.substring(url.lastIndexOf('/') + 1);
+            if (!name.endsWith(".apk")) name = "Splitt-Tool-Update.apk";
+            android.app.DownloadManager.Request r = new android.app.DownloadManager.Request(Uri.parse(url));
+            r.setTitle("Splitt-Tool Update");
+            r.setDescription("Fertig? Antippen und „Aktualisieren“ wählen.");
+            r.setMimeType("application/vnd.android.package-archive");
+            r.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            r.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, name);
+            final long id = dm.enqueue(r);
+            lastDownloadId = id;
+            watchDownload(id);
+            dialog("Update wird geladen", "Die neue Version wird jetzt geladen. Danach öffnet sich die Android-"
+                    + "Installation – dort „Aktualisieren“ wählen.");
         } catch (Exception e) {
-            dialog("Update", "Bitte diese Adresse im Browser öffnen:\n" + url);
+            try {
+                act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+            } catch (Exception e2) {
+                dialog("Update", "Bitte diese Adresse im Browser öffnen:\n" + url);
+            }
         }
+    }
+
+    static long lastDownloadId = -1;
+
+    /** Darf die App den Android-Installer öffnen? (Einstellung „Unbekannte Apps installieren“) */
+    boolean canInstall() {
+        if (android.os.Build.VERSION.SDK_INT < 26) return true;
+        try {
+            return (Boolean) PackageManager.class.getMethod("canRequestPackageInstalls").invoke(act.getPackageManager());
+        } catch (Exception e) { return true; }
+    }
+
+    /**
+     * Öffnet den normalen Android-Installer für die geladene APK. Android zeigt „Aktualisieren?“ –
+     * installiert wird erst nach deinem Tipp. Die App installiert nie still im Hintergrund.
+     */
+    void installDownloaded(long id) {
+        android.app.DownloadManager dm =
+                (android.app.DownloadManager) act.getSystemService(android.content.Context.DOWNLOAD_SERVICE);
+        Uri apk = dm.getUriForDownloadedFile(id);
+        if (apk == null) { dialog("Update fehlgeschlagen", "Die neue Version konnte nicht geladen werden. Bitte später erneut versuchen."); return; }
+        if (!canInstall()) { askInstallPermission(); return; }
+        Intent i = new Intent(Intent.ACTION_VIEW);
+        i.setDataAndType(apk, "application/vnd.android.package-archive");
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { act.startActivity(i); }
+        catch (Exception e) { dialog("Update", "Bitte die Benachrichtigung „Splitt-Tool Update“ antippen."); }
+    }
+
+    private void askInstallPermission() {
+            new AlertDialog.Builder(act)
+                .setTitle("Einmal erlauben")
+                .setMessage("Damit der Update-Knopf die neue Version installieren kann, muss Android dem Splitt-Tool "
+                        + "einmalig erlauben, Apps zu installieren.\n\nIm nächsten Fenster „Zulassen“ einschalten, "
+                        + "zurückkehren und erneut auf den roten Update-Knopf tippen.")
+                .setPositiveButton("Zu den Einstellungen", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        act.startActivity(new Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES",
+                                Uri.parse("package:" + act.getPackageName())));
+                    }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+    }
+
+
+    /** Sobald der Download fertig ist, öffnet sich der Android-Installer. */
+    private void watchDownload(final long id) {
+        android.content.BroadcastReceiver rec = new android.content.BroadcastReceiver() {
+            public void onReceive(android.content.Context c, Intent in) {
+                if (in.getLongExtra(android.app.DownloadManager.EXTRA_DOWNLOAD_ID, -1) != id) return;
+                try { act.getApplicationContext().unregisterReceiver(this); } catch (Exception ignored) { }
+                if (act.isFinishing()) return;
+                installDownloaded(id);
+            }
+        };
+        android.content.IntentFilter f = new android.content.IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        android.content.Context app = act.getApplicationContext();
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                // registerReceiver(..., RECEIVER_EXPORTED) – Pflicht ab Android 14; die Meldung kommt vom Download-Dienst
+                app.getClass().getMethod("registerReceiver", android.content.BroadcastReceiver.class,
+                        android.content.IntentFilter.class, int.class).invoke(app, rec, f, 0x2);
+            } else {
+                app.registerReceiver(rec, f);
+            }
+        } catch (Exception ignored) { /* ohne Rückmeldung – die Benachrichtigung reicht */ }
     }
 
     private static HttpURLConnection open(String url) throws IOException { return open(url, null); }
