@@ -1,6 +1,6 @@
 {
-  "versionCode": 7,
-  "versionName": "1.6",
-  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-1.6.apk",
-  "notes": "Erstes Update über den Knopf – wenn du das liest, funktioniert die Aktualisierung."
+  "versionCode": 8,
+  "versionName": "1.7",
+  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-1.7.apk",
+  "notes": "Neu: Die App sucht beim Start selbst nach Updates – ist eins da, leuchtet der Update-Knopf oben rechts rot."
 }

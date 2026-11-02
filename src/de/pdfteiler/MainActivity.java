@@ -288,11 +288,67 @@ public class MainActivity extends Activity {
     }
 
     // ------------------------------------------------------------------ Update-Knopf oben rechts
+    private TextView updateView;
+    private String availableVersion = null;
+    private long lastCheck = 0;
+
     @Override
     public boolean onCreateOptionsMenu(android.view.Menu menu) {
-        miUpdate = menu.add(0, 1, 0, "⟳ Update");
-        miUpdate.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS | android.view.MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+        miUpdate = menu.add(0, 1, 0, "Update");
+        miUpdate.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS);
+        updateView = new TextView(this);
+        updateView.setTextSize(15);
+        updateView.setTypeface(Typeface.DEFAULT_BOLD);
+        updateView.setPadding(dp(14), dp(6), dp(14), dp(6));
+        updateView.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+            if (worker != null && worker.isAlive()) { alert("Bitte warten", "Erst nach dem Aufteilen aktualisieren."); return; }
+            updater.check();
+        }});
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setGravity(Gravity.CENTER_VERTICAL);
+        wrap.setPadding(0, 0, dp(10), 0);
+        wrap.addView(updateView);
+        miUpdate.setActionView(wrap);
+        styleUpdateButton();
         return true;
+    }
+
+    /** Normal: dezenter Knopf. Update verfügbar: rot leuchtend (pulsierend). */
+    private void styleUpdateButton() {
+        if (updateView == null) return;
+        updateView.clearAnimation();
+        if (availableVersion == null) {
+            updateView.setText("⟳ Update");
+            updateView.setTextColor(Color.WHITE);
+            updateView.setBackgroundColor(Color.TRANSPARENT);
+        } else {
+            updateView.setText("● Update " + availableVersion);
+            updateView.setTextColor(Color.WHITE);
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(0xFFE53935);
+            bg.setCornerRadius(dp(16));
+            updateView.setBackground(bg);
+            android.view.animation.AlphaAnimation pulse = new android.view.animation.AlphaAnimation(1f, 0.45f);
+            pulse.setDuration(700);
+            pulse.setRepeatMode(android.view.animation.Animation.REVERSE);
+            pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
+            updateView.startAnimation(pulse);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        long now = System.currentTimeMillis();
+        if (now - lastCheck < 10 * 60 * 1000L) return;   // höchstens alle 10 Minuten
+        lastCheck = now;
+        updater.checkSilently(new Updater.Callback() {
+            public void available(String versionName, String notes) {
+                availableVersion = versionName;
+                styleUpdateButton();
+                log("Neue Version " + versionName + " verfügbar – oben rechts auf „Update“ tippen.");
+            }
+        });
     }
 
     @Override

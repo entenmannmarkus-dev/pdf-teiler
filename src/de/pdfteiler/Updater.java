@@ -31,6 +31,33 @@ import java.net.URL;
 final class Updater {
     static final String REPO = "entenmannmarkus-dev/pdf-teiler";
     static String UPDATE_URL = "https://raw.githubusercontent.com/" + REPO + "/main/update.json";
+    /** Frische Quelle ohne CDN-Verzögerung (GitHub-API, 60 Abfragen/Stunde ohne Anmeldung). */
+    static String API_URL = "https://api.github.com/repos/" + REPO + "/contents/update.json?ref=main";
+
+    interface Callback { void available(String versionName, String notes); }
+
+    /** Liest update.json – zuerst über die API (sofort aktuell), sonst über raw.githubusercontent.com. */
+    static JSONObject fetchInfo() throws Exception {
+        try {
+            return new JSONObject(new String(get(API_URL, "application/vnd.github.raw+json"), "UTF-8"));
+        } catch (Exception apiFailed) {
+            return new JSONObject(new String(get(UPDATE_URL + "?t=" + System.currentTimeMillis(), null), "UTF-8"));
+        }
+    }
+
+    /** Stille Prüfung im Hintergrund (beim Start der App): meldet nur, wenn es eine neuere Version gibt. */
+    void checkSilently(final Callback cb) {
+        new Thread(new Runnable() { public void run() {
+            try {
+                JSONObject o = fetchInfo();
+                final int code = o.getInt("versionCode");
+                final String name = o.optString("versionName", String.valueOf(code));
+                final String notes = o.optString("notes", "");
+                if (code > currentVersionCode(act))
+                    main.post(new Runnable() { public void run() { cb.available(name, notes); } });
+            } catch (Exception ignored) { /* offline – beim nächsten Start wieder */ }
+        }}, "update-check").start();
+    }
     static final String ACTION_STATUS = "de.pdfteiler.INSTALL_STATUS";
     private static final int FLAG_MUTABLE = 0x02000000; // PendingIntent.FLAG_MUTABLE (API 31)
 
@@ -63,8 +90,7 @@ final class Updater {
         final ProgressDialog pd = ProgressDialog.show(act, "Update", "Suche nach neuer Version …", true, true);
         new Thread(new Runnable() { public void run() {
             try {
-                String json = new String(get(UPDATE_URL + "?t=" + System.currentTimeMillis()), "UTF-8");
-                final JSONObject o = new JSONObject(json);
+                final JSONObject o = fetchInfo();
                 final int code = o.getInt("versionCode");
                 final String name = o.optString("versionName", String.valueOf(code));
                 final String apk = o.getString("apkUrl");
@@ -191,13 +217,16 @@ final class Updater {
         }
     }
 
-    private static HttpURLConnection open(String url) throws IOException {
+    private static HttpURLConnection open(String url) throws IOException { return open(url, null); }
+
+    private static HttpURLConnection open(String url, String accept) throws IOException {
         for (int i = 0; i < 6; i++) {
             HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
             c.setConnectTimeout(20000);
             c.setReadTimeout(60000);
             c.setInstanceFollowRedirects(false);
-            c.setRequestProperty("User-Agent", "PDF-Teiler-Android");
+            c.setRequestProperty("User-Agent", "Splitt-Tool-Android");
+            if (accept != null) c.setRequestProperty("Accept", accept);
             int code = c.getResponseCode();
             if (code >= 300 && code < 400) {
                 url = new URL(new URL(url), c.getHeaderField("Location")).toString();
@@ -210,8 +239,8 @@ final class Updater {
         throw new IOException("Zu viele Weiterleitungen");
     }
 
-    private static byte[] get(String url) throws IOException {
-        HttpURLConnection c = open(url);
+    private static byte[] get(String url, String accept) throws IOException {
+        HttpURLConnection c = open(url, accept);
         try {
             InputStream in = c.getInputStream();
             ByteArrayOutputStream b = new ByteArrayOutputStream();

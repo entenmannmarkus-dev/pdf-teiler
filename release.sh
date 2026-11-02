@@ -14,4 +14,4 @@ d.update(versionCode=int(sys.argv[1]), versionName=sys.argv[2], notes=sys.argv[3
          apkUrl="https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-%s.apk" % sys.argv[2])
 json.dump(d, open("update.json", "w"), ensure_ascii=False, indent=2)
 PY
-git add -A && git commit -m "Version $VERSION_NAME" && git push origin main
+git add -A && git commit -m "Version $VERSION_NAME" ${COMMIT_TRAILER:+-m "$COMMIT_TRAILER"} && git push origin main

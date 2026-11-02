@@ -122,7 +122,7 @@ public class AppTest {
         a.onCreateOptionsMenu(menu);
         MenuItem mi = menu.findItem(1);
         assertNotNull(mi);
-        assertEquals("⟳ Update", mi.getTitle().toString());
+        assertEquals("Update", mi.getTitle().toString());
         assertNotNull(button(a, "PDF auswählen"));
         assertNotNull(button(a, "Vorschau"));
         assertNotNull(button(a, "Aufteilen"));
@@ -134,7 +134,7 @@ public class AppTest {
         MainActivity a = start(new File(System.getProperty("java.io.tmpdir")));
         RoboMenu menu = new RoboMenu(a);
         a.onCreateOptionsMenu(menu);
-        a.onOptionsItemSelected(menu.findItem(1));
+        ((TextView) field(a, "updateView")).performClick();
         for (int i = 0; i < 100; i++) {
             Thread.sleep(150);
             ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
@@ -228,7 +228,7 @@ public class AppTest {
         } catch (Exception e) { System.out.println("kein setCanRequestPackageInstalls: " + e); }
         RoboMenu menu = new RoboMenu(a);
         a.onCreateOptionsMenu(menu);
-        a.onOptionsItemSelected(menu.findItem(1));
+        ((TextView) field(a, "updateView")).performClick();
         AlertDialog d = null;
         for (int i = 0; i < 100; i++) {
             Thread.sleep(100);
@@ -251,6 +251,28 @@ public class AppTest {
         System.out.println("DIALOG2: " + Shadows.shadowOf(d2).getTitle() + " | " + Shadows.shadowOf(d2).getMessage());
         Intent next = Shadows.shadowOf(a).getNextStartedActivity();
         System.out.println("GESTARTET: " + next);
+    }
+
+    @Test public void redButtonWhenUpdateAvailable() throws Exception {
+        Updater.API_URL = "http://127.0.0.1:8765/nope";
+        Updater.UPDATE_URL = "http://127.0.0.1:8765/update.json";
+        org.robolectric.android.controller.ActivityController<MainActivity> ctl = Robolectric.buildActivity(MainActivity.class);
+        FolderProvider.base = new File(System.getProperty("java.io.tmpdir"));
+        MainActivity a = ctl.create().start().get();
+        RoboMenu menu = new RoboMenu(a);
+        a.onCreateOptionsMenu(menu);
+        TextView uv = (TextView) field(a, "updateView");
+        System.out.println("VORHER: " + uv.getText());
+        ctl.resume();
+        for (int i = 0; i < 60; i++) { Thread.sleep(100); ShadowLooper.runUiThreadTasksIncludingDelayedTasks(); if (uv.getText().toString().startsWith("●")) break; }
+        System.out.println("NACHHER: " + uv.getText() + " bg=" + uv.getBackground() + " anim=" + uv.getAnimation());
+        assertTrue(uv.getText().toString().startsWith("● Update 9.9"));
+    }
+
+    @Test public void liveGithubSourceReachable() throws Exception {
+        org.json.JSONObject o = Updater.fetchInfo();
+        System.out.println("LIVE update.json: " + o);
+        assertTrue(o.getInt("versionCode") >= 7);
     }
 
     static void deleteTree(File f) {
