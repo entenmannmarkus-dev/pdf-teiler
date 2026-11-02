@@ -1,6 +1,6 @@
 {
-  "versionCode": 10,
-  "versionName": "1.9",
-  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-1.9.apk",
-  "notes": "App installiert nichts mehr selbst (keine Installations-Berechtigung), dadurch keine Malware-Warnung. Roter Update-Knopf lädt die neue Version im Browser."
+  "versionCode": 11,
+  "versionName": "2.0",
+  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-2.0.apk",
+  "notes": "Export an Claude: Knopf „An Claude senden“ schickt alle Teile plus Quellen-Karte (00_CLAUDE_PROJEKT.md) an die Claude-App. „Projekt-Anweisung kopieren“ für ein Claude-Projekt als Second Brain."
 }

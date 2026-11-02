@@ -652,6 +652,29 @@ public class MainActivity extends Activity {
             if (all.size() > 20) alert("Hinweis", "Claude nimmt höchstens 20 Dateien pro Chat an. Bitte die Teile einzeln oder in Gruppen schicken.");
             else shareMany(all);
         }});
+        // Export an Claude: alle Teile + Quellen-Karte in einem Rutsch, Projekt-Anweisung zum Einfügen
+        final Uri guide = r.projectGuideFile == null ? null : io.uri(r.projectGuideFile);
+        final String guideText = r.projectGuide;
+        Button bClaude = button(resultBox, "An Claude senden (Teile + Quellen-Karte)");
+        bClaude.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+            java.util.ArrayList<Uri> list = new java.util.ArrayList<Uri>(all);
+            if (guide != null) list.add(guide);
+            if (list.size() > 20) { alert("Hinweis", "Claude nimmt höchstens 20 Dateien pro Chat an. Bitte die Teile einzeln oder in Gruppen schicken."); return; }
+            sendToClaude(list);
+        }});
+        if (guideText != null) {
+            Button bCopy = button(resultBox, "Projekt-Anweisung kopieren");
+            bCopy.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+                String t = guideText;
+                int a = t.indexOf("```\n"), b = a < 0 ? -1 : t.indexOf("```", a + 4);
+                if (a >= 0 && b > a) t = t.substring(a + 4, b).trim();
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("Projekt-Anweisung", t));
+                alert("Kopiert", "Die Projekt-Anweisung ist in der Zwischenablage.\n\nIn Claude: Projekt öffnen oder anlegen → "
+                        + "„Anweisungen“ → einfügen. Dann die Teile und die Datei " + SplitCore.PROJECT_FILE
+                        + " unter „Dateien“ hinzufügen. Danach steht alles auch am Rechner im selben Projekt bereit.");
+            }});
+        }
         for (int i = 0; i < r.files.size(); i++) {
             final Uri u = io.uri(r.files.get(i));
             if (u == null) continue;
@@ -692,6 +715,20 @@ public class MainActivity extends Activity {
         i.setClipData(cd);
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startShare(i);
+    }
+
+    /** Teile direkt an die Claude-App; ist sie nicht installiert, normales Teilen-Menü. */
+    private void sendToClaude(java.util.ArrayList<Uri> uris) {
+        Intent i = new Intent(Intent.ACTION_SEND_MULTIPLE);
+        i.setType("*/*");
+        i.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+        android.content.ClipData cd = android.content.ClipData.newRawUri("Teil", uris.get(0));
+        for (int k = 1; k < uris.size(); k++) cd.addItem(new android.content.ClipData.Item(uris.get(k)));
+        i.setClipData(cd);
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        i.setPackage("com.anthropic.claude");
+        try { startActivity(i); }
+        catch (Exception notInstalled) { i.setPackage(null); startShare(i); }
     }
 
     private void startShare(Intent i) {

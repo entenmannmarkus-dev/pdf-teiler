@@ -208,6 +208,21 @@ public class AppTest {
         Intent in2 = st2.getParcelableExtra(Intent.EXTRA_INTENT);
         System.out.println("ALLE TEILEN: " + in2.getAction() + " anzahl=" + in2.getParcelableArrayListExtra(Intent.EXTRA_STREAM).size());
 
+        // Export an Claude: Teile + Quellen-Karte direkt an die Claude-App
+        assertTrue("Quellen-Karte fehlt", new File(dir, "00_CLAUDE_PROJEKT.md").length() > 0);
+        button(a, "An Claude senden").performClick();
+        Intent cl = Shadows.shadowOf(a).getNextStartedActivity();
+        java.util.ArrayList<android.os.Parcelable> st = cl.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+        System.out.println("AN CLAUDE: " + cl.getAction() + " pkg=" + cl.getPackage() + " anzahl=" + st.size() + " letzte=" + st.get(st.size() - 1));
+        assertEquals("com.anthropic.claude", cl.getPackage());
+        assertEquals(Intent.ACTION_SEND_MULTIPLE, cl.getAction());
+        assertTrue(st.get(st.size() - 1).toString().contains("00_CLAUDE_PROJEKT.md"));
+        button(a, "Projekt-Anweisung kopieren").performClick();
+        android.content.ClipboardManager cm = (android.content.ClipboardManager) a.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        String clip = cm.getPrimaryClip().getItemAt(0).getText().toString();
+        System.out.println("ZWISCHENABLAGE: " + clip.substring(0, Math.min(120, clip.length())));
+        assertTrue(clip.startsWith("Die Projektdateien sind meine Wissensquelle"));
+
         // Verbesserungsvorschlag
         ((TextView) field(a, "etFeedback")).setText("Bitte größere Knöpfe");
         button(a, "Senden (GitHub)").performClick();

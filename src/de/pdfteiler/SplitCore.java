@@ -115,6 +115,8 @@ public final class SplitCore {
         public List<String> warnings = new ArrayList<String>();
         public List<String> errors = new ArrayList<String>();
         public String overview;
+        /** Anleitung/Index für ein Claude-Projekt („Second Brain“), Datei 00_CLAUDE_PROJEKT.md. */
+        public String projectGuide, projectGuideFile;
         public List<String> files = new ArrayList<String>();
         public List<String> labels = new ArrayList<String>();
     }
@@ -247,6 +249,7 @@ public final class SplitCore {
                         + "\n" + shortLabel(p));
             }
             writeOverview(parts, chapters, (System.currentTimeMillis() - t0) / 1000);
+            writeProjectGuide(parts);
             ui.log("Fertig: " + parts.size() + " Teile (" + (System.currentTimeMillis() - t0) / 1000 + " s)");
             return result;
         } finally {
@@ -999,6 +1002,46 @@ public final class SplitCore {
         }
         result.overview = md.toString();
         OutputStream os = io.createOutput("00_UEBERSICHT.md", "application/octet-stream");
+        try { os.write(md.toString().getBytes("UTF-8")); } finally { os.close(); }
+    }
+
+    // ================================================================== Claude-Projekt
+    static final String PROJECT_FILE = "00_CLAUDE_PROJEKT.md";
+
+    /**
+     * Quellen-Karte für ein Claude-Projekt: Projekt-Anweisung plus Index Kapitel → Teil → Seiten.
+     * Enthält nur Angaben aus der PDF selbst (Titel, Lesezeichen/Überschriften, Seitenzahlen).
+     */
+    private void writeProjectGuide(List<Part> parts) throws IOException {
+        int total = parts.size();
+        StringBuilder md = new StringBuilder();
+        md.append("# Quelle: ").append(docTitle).append("\n\n");
+        md.append("Diese Datei gehört zu den ").append(total).append(" PDF-Teilen von \"").append(s.baseName)
+          .append("\" (").append(pages.size()).append(" Seiten). Sie zusammen in ein Claude-Projekt laden – ")
+          .append("dann stehen sie in jedem Chat des Projekts als Quelle bereit, auf Tablet und Rechner.\n\n");
+        md.append("## Projekt-Anweisung (in Claude unter „Anweisungen“ einfügen)\n\n");
+        md.append("```\n");
+        md.append("Die Projektdateien sind meine Wissensquelle (Second Brain). Sie enthalten das Dokument \"")
+          .append(docTitle).append("\", aufgeteilt in ").append(total).append(" PDF-Teile.\n");
+        md.append("- Beantworte Fragen nur mit Inhalten aus diesen Dateien. Steht etwas nicht darin, sag das klar.\n");
+        md.append("- Nenne bei jeder Aussage Teil und PDF-Seite des Originals (siehe Index in ").append(PROJECT_FILE).append(").\n");
+        md.append("- Zitiere Werte, Formeln und Tabellen wörtlich; nichts schätzen oder ergänzen.\n");
+        md.append("- Seite n im Teil k entspricht PDF-Seite (erste Seite von Teil k) + n − 1.\n");
+        md.append("```\n\n");
+        md.append("## Index\n\n| Teil | Datei | PDF-Seiten im Original | Kapitel |\n|---:|---|---|---|\n");
+        for (int i = 0; i < total; i++) {
+            Part p = parts.get(i);
+            md.append("| ").append(i + 1).append(" | `").append(p.file).append("` | ").append(p.start() + 1).append('–')
+              .append(p.end() + 1).append(" | ").append(join(chapterLines(p), "<br>").replace("|", "/")).append(" |\n");
+        }
+        md.append("\n## Auf dem Rechner und in GitHub\n\n");
+        md.append("- Claude-Projekte sind an dein Konto gebunden: was du am Tablet hochlädst, ist am Rechner im selben Projekt.\n");
+        md.append("- Für ein GitHub-Repository: diesen Ordner als Ganzes hochladen, diese Datei dient als README. ")
+          .append("Bücher und urheberrechtlich geschützte Werke nur in ein **privates** Repository legen. ")
+          .append("GitHub nimmt Dateien bis 100 MB an (im Browser bis 25 MB).\n");
+        result.projectGuide = md.toString();
+        result.projectGuideFile = PROJECT_FILE;
+        OutputStream os = io.createOutput(PROJECT_FILE, "application/octet-stream");
         try { os.write(md.toString().getBytes("UTF-8")); } finally { os.close(); }
     }
 
