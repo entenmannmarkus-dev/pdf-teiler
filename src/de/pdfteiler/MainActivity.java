@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
     private long pdfSize = -1;
     private TextView tvPdf, tvDir, tvLog, tvStatus;
     private EditText etMb, etPages;
-    private CheckBox cbOne, cbVerify, cbDetect, cbAutoUpdate;
+    private CheckBox cbOne, cbVerify, cbDetect;
     private Button bPdf, bDir, bStart, bCancel, bPreview;
     private android.view.MenuItem miUpdate;
     private ProgressBar bar;
@@ -82,7 +82,6 @@ public class MainActivity extends Activity {
 
     private void handleIntent(Intent in) {
         if (in == null) return;
-        if (Updater.ACTION_STATUS.equals(in.getAction())) { updater.onInstallStatus(in); return; }
         Uri u = null;
         if (Intent.ACTION_VIEW.equals(in.getAction())) u = in.getData();
         else if (Intent.ACTION_SEND.equals(in.getAction())) u = in.getParcelableExtra(Intent.EXTRA_STREAM);
@@ -232,11 +231,6 @@ public class MainActivity extends Activity {
         cbDetect.setChecked(prefs.getBoolean("detect", true));
         cbVerify = new CheckBox(this); cbVerify.setText("Jeden Teil mit dem Original vergleichen (empfohlen)"); set.addView(cbVerify);
         cbVerify.setChecked(prefs.getBoolean("verify", true));
-        cbAutoUpdate = new CheckBox(this); cbAutoUpdate.setText("Updates automatisch installieren"); set.addView(cbAutoUpdate);
-        cbAutoUpdate.setChecked(prefs.getBoolean("autoupdate", true));
-        cbAutoUpdate.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
-            public void onCheckedChanged(android.widget.CompoundButton b, boolean on) { prefs.edit().putBoolean("autoupdate", on).apply(); }
-        });
 
         // Start
         LinearLayout run = card(root, "▶  Aufteilen", 0);
@@ -423,12 +417,7 @@ public class MainActivity extends Activity {
             public void available(String versionName, String notes, String apkUrl) {
                 availableVersion = versionName;
                 styleUpdateButton();
-                if (cbAutoUpdate.isChecked() && (worker == null || !worker.isAlive())) {
-                    log("Neue Version " + versionName + " gefunden – wird automatisch installiert …");
-                    updater.download(apkUrl, true);
-                } else {
-                    log("Neue Version " + versionName + " verfügbar – oben rechts auf „Update“ tippen.");
-                }
+                log("Neue Version " + versionName + " verfügbar – oben rechts auf das rote „Update“ tippen.");
             }
         });
     }

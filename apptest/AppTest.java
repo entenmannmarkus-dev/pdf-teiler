@@ -219,16 +219,11 @@ public class AppTest {
         System.out.println("CLAUDE-APP: " + ca.getAction() + " pkg=" + ca.getPackage() + " text=" + ca.getStringExtra(Intent.EXTRA_TEXT).substring(0, 60));
     }
 
-    @Test public void selfUpdateDownloadsAndInstalls() throws Exception {
+    @Test public void updateOpensBrowserDownload() throws Exception {
+        Updater.API_URL = "http://127.0.0.1:8765/nope";
         Updater.UPDATE_URL = "http://127.0.0.1:8765/update.json";
         MainActivity a = start(new File(System.getProperty("java.io.tmpdir")));
-        try {
-            Object pm = Shadows.shadowOf(a.getPackageManager());
-            pm.getClass().getMethod("setCanRequestPackageInstalls", boolean.class).invoke(pm, true);
-            System.out.println("canRequestPackageInstalls gesetzt");
-        } catch (Exception e) { System.out.println("kein setCanRequestPackageInstalls: " + e); }
-        RoboMenu menu = new RoboMenu(a);
-        a.onCreateOptionsMenu(menu);
+        a.onCreateOptionsMenu(new RoboMenu(a));
         ((TextView) field(a, "updateView")).performClick();
         AlertDialog d = null;
         for (int i = 0; i < 100; i++) {
@@ -240,18 +235,11 @@ public class AppTest {
         System.out.println("DIALOG1: " + Shadows.shadowOf(d).getTitle() + " | " + Shadows.shadowOf(d).getMessage());
         d.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
-        for (int i = 0; i < 100; i++) {
-            Thread.sleep(100);
-            ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
-            android.content.pm.PackageInstaller pi = a.getPackageManager().getPackageInstaller();
-            for (android.content.pm.PackageInstaller.SessionInfo si : pi.getAllSessions())
-                System.out.println("SESSION " + si.getSessionId() + " pkg=" + si.getAppPackageName());
-            if (!pi.getAllSessions().isEmpty()) break;
-        }
-        AlertDialog d2 = ShadowAlertDialog.getLatestAlertDialog();
-        System.out.println("DIALOG2: " + Shadows.shadowOf(d2).getTitle() + " | " + Shadows.shadowOf(d2).getMessage());
         Intent next = Shadows.shadowOf(a).getNextStartedActivity();
-        System.out.println("GESTARTET: " + next);
+        System.out.println("BROWSER: " + next.getAction() + " " + next.getData());
+        assertEquals(Intent.ACTION_VIEW, next.getAction());
+        assertTrue(next.getData().toString().endsWith(".apk"));
+        assertTrue(a.getPackageManager().getPackageInstaller().getAllSessions().isEmpty());
     }
 
     @Test public void redButtonWhenUpdateAvailable() throws Exception {
@@ -281,7 +269,7 @@ public class AppTest {
         if (v instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++) dump(((ViewGroup) v).getChildAt(i), sb, depth + 1);
     }
 
-    @Test public void autoInstallWhenUpdateFound() throws Exception {
+    @Test public void noSilentInstallWhenUpdateFound() throws Exception {
         Updater.API_URL = "http://127.0.0.1:8765/nope";
         Updater.UPDATE_URL = "http://127.0.0.1:8765/update.json";
         FolderProvider.base = new File(System.getProperty("java.io.tmpdir"));
@@ -289,11 +277,12 @@ public class AppTest {
         MainActivity a = ctl.create().start().get();
         a.onCreateOptionsMenu(new RoboMenu(a));
         ctl.resume();
-        android.content.pm.PackageInstaller pi = a.getPackageManager().getPackageInstaller();
-        for (int i = 0; i < 80 && pi.getAllSessions().isEmpty(); i++) { Thread.sleep(100); ShadowLooper.runUiThreadTasksIncludingDelayedTasks(); }
-        System.out.println("AUTO-SESSIONS: " + pi.getAllSessions().size() + " Knopf: " + ((TextView) field(a, "updateView")).getText());
-        System.out.println("AUTO-LOG: " + ((TextView) field(a, "tvLog")).getText());
-        assertFalse(pi.getAllSessions().isEmpty());
+        TextView uv = (TextView) field(a, "updateView");
+        for (int i = 0; i < 60 && !uv.getText().toString().startsWith("●"); i++) { Thread.sleep(100); ShadowLooper.runUiThreadTasksIncludingDelayedTasks(); }
+        System.out.println("KNOPF: " + uv.getText() + " LOG: " + ((TextView) field(a, "tvLog")).getText());
+        assertTrue(uv.getText().toString().startsWith("●"));
+        assertTrue(a.getPackageManager().getPackageInstaller().getAllSessions().isEmpty());
+        assertNull(Shadows.shadowOf(a).getNextStartedActivity());
     }
 
     static void deleteTree(File f) {

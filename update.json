@@ -1,6 +1,6 @@
 {
-  "versionCode": 9,
-  "versionName": "1.8",
-  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-1.8.apk",
-  "notes": "Neu: Kapitel-Vorschau direkt im Hauptfenster (startet automatisch nach PDF-Auswahl), Eingang und Ausgang nebeneinander in Kästen, dunkelblaues Design, Updates werden automatisch installiert."
+  "versionCode": 10,
+  "versionName": "1.9",
+  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-1.9.apk",
+  "notes": "App installiert nichts mehr selbst (keine Installations-Berechtigung), dadurch keine Malware-Warnung. Roter Update-Knopf lädt die neue Version im Browser."
 }

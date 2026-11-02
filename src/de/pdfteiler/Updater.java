@@ -2,15 +2,12 @@ package de.pdfteiler;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.PendingIntent;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
-import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -19,14 +16,12 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
  * Selbst-Aktualisierung: liest update.json aus dem öffentlichen GitHub-Repository,
- * lädt bei neuerer Version die APK und übergibt sie dem Android-Paketinstaller.
- * Android fragt vor der Installation immer selbst nach – nichts passiert ungefragt.
+ * und meldet eine neuere Version. Die APK wird im Browser geöffnet; die App installiert nichts selbst.
  */
 final class Updater {
     static final String REPO = "entenmannmarkus-dev/pdf-teiler";
@@ -59,8 +54,6 @@ final class Updater {
             } catch (Exception ignored) { /* offline – beim nächsten Start wieder */ }
         }}, "update-check").start();
     }
-    static final String ACTION_STATUS = "de.pdfteiler.INSTALL_STATUS";
-    private static final int FLAG_MUTABLE = 0x02000000; // PendingIntent.FLAG_MUTABLE (API 31)
 
     private final Activity act;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -105,7 +98,8 @@ final class Updater {
                     }
                     new AlertDialog.Builder(act)
                         .setTitle("Neue Version " + name)
-                        .setMessage((notes.isEmpty() ? "" : notes + "\n\n") + "Jetzt herunterladen und installieren?")
+                        .setMessage((notes.isEmpty() ? "" : notes + "\n\n") + "Die neue Version wird im Browser heruntergeladen. "
+                                + "Danach die Datei antippen und „Aktualisieren“ wählen.")
                         .setPositiveButton("Aktualisieren", new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface d, int w) { download(apk, false); }
                         })
@@ -125,103 +119,15 @@ final class Updater {
         }}).start();
     }
 
-    private boolean canInstall() {
-        if (Build.VERSION.SDK_INT < 26) return true;
-        try {
-            return (Boolean) PackageManager.class.getMethod("canRequestPackageInstalls").invoke(act.getPackageManager());
-        } catch (Exception e) { return true; }
-    }
-
-    /** quiet = automatische Installation im Hintergrund (ohne eigene Dialoge). */
+    /**
+     * Öffnet die neue APK im Browser. Die App installiert selbst nichts: Herunterladen und
+     * Installieren laufen über den Browser und den normalen Android-Installer, mit deiner Bestätigung.
+     */
     void download(final String url, final boolean quiet) {
-        if (!canInstall()) {
-            if (quiet) return; // Erlaubnis fehlt noch – Knopf bleibt rot, Nutzer tippt selbst
-            new AlertDialog.Builder(act)
-                .setTitle("Erlaubnis nötig")
-                .setMessage("Damit die App sich selbst aktualisieren kann, muss Android ihr einmalig erlauben, "
-                        + "Apps zu installieren. Bitte im nächsten Fenster „Zulassen“ einschalten, zurückkehren "
-                        + "und erneut auf „Nach Update suchen“ tippen.")
-                .setPositiveButton("Zu den Einstellungen", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int w) {
-                        act.startActivity(new Intent("android.settings.MANAGE_UNKNOWN_APP_SOURCES",
-                                Uri.parse("package:" + act.getPackageName())));
-                    }
-                })
-                .setNegativeButton("Abbrechen", null)
-                .show();
-            return;
-        }
-        final ProgressDialog pd = new ProgressDialog(act);
-        pd.setTitle("Update");
-        pd.setMessage("Lade neue Version …");
-        pd.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        pd.setMax(100);
-        pd.setCancelable(false);
-        if (!quiet) pd.show();
-        new Thread(new Runnable() { public void run() {
-            HttpURLConnection c = null;
-            try {
-                c = open(url);
-                long total = c.getContentLength();
-                PackageInstaller pi = act.getPackageManager().getPackageInstaller();
-                PackageInstaller.SessionParams sp = new PackageInstaller.SessionParams(
-                        PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-                sp.setAppPackageName(act.getPackageName());
-                // Android 12+: Updates ohne Rückfrage, sobald die App sich einmal selbst installiert hat
-                if (Build.VERSION.SDK_INT >= 31) {
-                    try { sp.getClass().getMethod("setRequireUserAction", int.class).invoke(sp, 2); }
-                    catch (Exception ignored) { }
-                }
-                int id = pi.createSession(sp);
-                PackageInstaller.Session s = pi.openSession(id);
-                InputStream in = c.getInputStream();
-                OutputStream out = s.openWrite("update.apk", 0, total > 0 ? total : -1);
-                byte[] buf = new byte[65536];
-                long done = 0;
-                int n;
-                while ((n = in.read(buf)) > 0) {
-                    out.write(buf, 0, n);
-                    done += n;
-                    if (total > 0) {
-                        final int pct = (int) (100 * done / total);
-                        main.post(new Runnable() { public void run() { pd.setProgress(pct); } });
-                    }
-                }
-                s.fsync(out);
-                out.close();
-                in.close();
-                Intent cb = new Intent(act, MainActivity.class).setAction(ACTION_STATUS);
-                PendingIntent pend = PendingIntent.getActivity(act, id, cb,
-                        PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 31 ? FLAG_MUTABLE : 0));
-                s.commit(pend.getIntentSender());
-                s.close();
-                main.post(new Runnable() { public void run() { pd.dismiss(); } });
-            } catch (final Exception e) {
-                main.post(new Runnable() { public void run() {
-                    pd.dismiss();
-                    if (!quiet) dialog("Update fehlgeschlagen", String.valueOf(e.getMessage()));
-                }});
-            } finally {
-                if (c != null) c.disconnect();
-            }
-        }}).start();
-    }
-
-    /** Rückmeldung des Paketinstallers (über MainActivity.onNewIntent). */
-    void onInstallStatus(Intent in) {
-        int status = in.getIntExtra(PackageInstaller.EXTRA_STATUS, -999);
-        if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
-            Intent confirm = in.getParcelableExtra(Intent.EXTRA_INTENT);
-            if (confirm != null) {
-                confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                act.startActivity(confirm);
-            }
-        } else if (status != PackageInstaller.STATUS_SUCCESS) {
-            String m = in.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
-            if (status == PackageInstaller.STATUS_FAILURE_ABORTED) m = "Installation abgebrochen.";
-            else if (status == PackageInstaller.STATUS_FAILURE_CONFLICT)
-                m = "Die neue Version ist anders signiert als die installierte. (" + m + ")";
-            dialog("Update nicht installiert", String.valueOf(m));
+        try {
+            act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception e) {
+            dialog("Update", "Bitte diese Adresse im Browser öffnen:\n" + url);
         }
     }
 
