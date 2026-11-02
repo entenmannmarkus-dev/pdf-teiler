@@ -662,6 +662,12 @@ public class MainActivity extends Activity {
             if (list.size() > 20) { alert("Hinweis", "Claude nimmt höchstens 20 Dateien pro Chat an. Bitte die Teile einzeln oder in Gruppen schicken."); return; }
             sendToClaude(list);
         }});
+        Button bTeams = button(resultBox, "An Teams senden");
+        bTeams.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+            java.util.ArrayList<Uri> list = new java.util.ArrayList<Uri>(all);
+            if (guide != null) list.add(guide);
+            sendToApp(list, "com.microsoft.teams");
+        }});
         if (guideText != null) {
             Button bCopy = button(resultBox, "Projekt-Anweisung kopieren");
             bCopy.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
@@ -718,7 +724,10 @@ public class MainActivity extends Activity {
     }
 
     /** Teile direkt an die Claude-App; ist sie nicht installiert, normales Teilen-Menü. */
-    private void sendToClaude(java.util.ArrayList<Uri> uris) {
+    private void sendToClaude(java.util.ArrayList<Uri> uris) { sendToApp(uris, "com.anthropic.claude"); }
+
+    /** Teile direkt an eine bestimmte App (Claude, Teams); ist sie nicht installiert, normales Teilen-Menü. */
+    private void sendToApp(java.util.ArrayList<Uri> uris, String pkg) {
         Intent i = new Intent(Intent.ACTION_SEND_MULTIPLE);
         i.setType("*/*");
         i.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
@@ -726,7 +735,7 @@ public class MainActivity extends Activity {
         for (int k = 1; k < uris.size(); k++) cd.addItem(new android.content.ClipData.Item(uris.get(k)));
         i.setClipData(cd);
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        i.setPackage("com.anthropic.claude");
+        i.setPackage(pkg);
         try { startActivity(i); }
         catch (Exception notInstalled) { i.setPackage(null); startShare(i); }
     }

@@ -217,6 +217,11 @@ public class AppTest {
         assertEquals("com.anthropic.claude", cl.getPackage());
         assertEquals(Intent.ACTION_SEND_MULTIPLE, cl.getAction());
         assertTrue(st.get(st.size() - 1).toString().contains("00_CLAUDE_PROJEKT.md"));
+        button(a, "An Teams senden").performClick();
+        Intent tm = Shadows.shadowOf(a).getNextStartedActivity();
+        System.out.println("AN TEAMS: " + tm.getAction() + " pkg=" + tm.getPackage());
+        assertEquals("com.microsoft.teams", tm.getPackage());
+        assertEquals(Intent.ACTION_SEND_MULTIPLE, tm.getAction());
         button(a, "Projekt-Anweisung kopieren").performClick();
         android.content.ClipboardManager cm = (android.content.ClipboardManager) a.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
         String clip = cm.getPrimaryClip().getItemAt(0).getText().toString();
