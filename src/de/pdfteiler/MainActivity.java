@@ -191,6 +191,7 @@ public class MainActivity extends Activity {
         root.addView(resultBox);
         root.addView(logScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(320)));
 
+        buildFeedback(root);
         setContentView(outer);
         if (getActionBar() != null) getActionBar().setSubtitle("Version " + Updater.currentVersionName(this));
 
@@ -211,6 +212,79 @@ public class MainActivity extends Activity {
         bCancel.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
             cancel.set(true); log("Breche ab …");
         }});
+    }
+
+    // ------------------------------------------------------------------ Verbesserungsvorschläge
+    private EditText etFeedback;
+    private CheckBox cbLog;
+
+    private void buildFeedback(LinearLayout root) {
+        View line = new View(this);
+        line.setBackgroundColor(0xFFDDDDDD);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        lp.topMargin = dp(20);
+        root.addView(line, lp);
+        label(root, "Verbesserungsvorschlag an Claude", 18, true);
+        etFeedback = new EditText(this);
+        etFeedback.setHint("Was soll besser werden? Was hat nicht funktioniert?");
+        etFeedback.setMinLines(3);
+        etFeedback.setGravity(Gravity.TOP | Gravity.START);
+        etFeedback.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        root.addView(etFeedback);
+        cbLog = new CheckBox(this);
+        cbLog.setText("Protokoll der letzten Aktion anhängen (hilft bei Fehlern)");
+        cbLog.setChecked(true);
+        root.addView(cbLog);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        root.addView(row);
+        Button gh = button(row, "Senden (GitHub)");
+        Button app = button(row, "In Claude-App öffnen");
+        TextView hint = label(root, "„Senden“ legt den Vorschlag im Projekt auf GitHub ab, dort kann Claude ihn lesen "
+                + "und umsetzen (einmal bei GitHub anmelden). „In Claude-App öffnen“ übergibt den Text an die Claude-App.", 12, false);
+        hint.setTextColor(Color.GRAY);
+        gh.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+            String body = feedbackText();
+            if (body == null) return;
+            String title = etFeedback.getText().toString().trim().split("\\n")[0];
+            if (title.length() > 70) title = title.substring(0, 70) + " …";
+            try {
+                String url = "https://github.com/" + Updater.REPO + "/issues/new?labels=vorschlag&title="
+                        + java.net.URLEncoder.encode("Vorschlag: " + title, "UTF-8")
+                        + "&body=" + java.net.URLEncoder.encode(body, "UTF-8");
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+            } catch (Exception e) { alert("Nicht möglich", String.valueOf(e.getMessage())); }
+        }});
+        app.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+            String body = feedbackText();
+            if (body == null) return;
+            Intent i = new Intent(Intent.ACTION_SEND);
+            i.setType("text/plain");
+            i.putExtra(Intent.EXTRA_TEXT, "Verbesserungsvorschlag für meine App „Splitt-Tool“ "
+                    + "(Quellcode: github.com/" + Updater.REPO + "):\n\n" + body);
+            i.setPackage("com.anthropic.claude");
+            try { startActivity(i); }
+            catch (Exception e) {
+                i.setPackage(null);
+                startActivity(Intent.createChooser(i, "Vorschlag senden an …"));
+            }
+        }});
+    }
+
+    private String feedbackText() {
+        String t = etFeedback.getText().toString().trim();
+        if (t.isEmpty()) { alert("Kein Text", "Bitte zuerst den Vorschlag eintippen."); return null; }
+        StringBuilder b = new StringBuilder(t);
+        b.append("\n\n---\nApp-Version: ").append(Updater.currentVersionName(this))
+         .append("\nGerät: ").append(android.os.Build.MANUFACTURER).append(' ').append(android.os.Build.MODEL)
+         .append(", Android ").append(android.os.Build.VERSION.RELEASE);
+        if (cbLog.isChecked() && tvLog.length() > 0) {
+            String log = tvLog.getText().toString();
+            if (log.length() > 3000) log = "…" + log.substring(log.length() - 3000);
+            b.append("\n\nProtokoll:\n```\n").append(log).append("\n```");
+        }
+        return b.toString();
     }
 
     // ------------------------------------------------------------------ Update-Knopf oben rechts
@@ -271,8 +345,9 @@ public class MainActivity extends Activity {
         try {
             c = getContentResolver().query(u, new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE}, null, null, null);
             if (c != null && c.moveToFirst()) {
-                if (!c.isNull(0)) pdfName = c.getString(0);
-                if (!c.isNull(1)) pdfSize = c.getLong(1);
+                int iN = c.getColumnIndex(OpenableColumns.DISPLAY_NAME), iS = c.getColumnIndex(OpenableColumns.SIZE);
+                if (iN >= 0 && !c.isNull(iN)) pdfName = c.getString(iN);
+                if (iS >= 0 && !c.isNull(iS)) pdfSize = c.getLong(iS);
             }
         } catch (Exception ignored) {
         } finally { if (c != null) c.close(); }

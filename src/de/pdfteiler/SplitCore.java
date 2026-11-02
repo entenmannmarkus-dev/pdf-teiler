@@ -131,6 +131,7 @@ public final class SplitCore {
     private final List<Object[]> pageObjs = new ArrayList<Object[]>();
     private double sizeFactor = 1.0;
     private String chapterSource = "";
+    private String planNote = null;
     private String docTitle;
     private final Result result = new Result();
 
@@ -145,13 +146,15 @@ public final class SplitCore {
             open();
             int n = pages.size();
             ui.log("Vorschau: " + n + " Seiten werden analysiert …");
-            List<Chapter> chapters = findChapters();
             indexPages();
+            List<Chapter> chapters = findChapters();
             List<Unit> units = buildUnits(chapters);
             List<Part> parts = pack(units);
             StringBuilder b = new StringBuilder();
             b.append(n).append(" Seiten · ").append(chapters.size()).append(" Kapitel\n")
-             .append("Kapitel erkannt über: ").append(chapterSource).append("\n\n");
+             .append("Kapitel erkannt über: ").append(chapterSource).append("\n");
+            if (planNote != null) b.append("\nEMPFEHLUNG DER AUFTEILUNG\n").append(planNote).append('\n');
+            b.append('\n');
             b.append("KAPITEL\n");
             for (Chapter c : chapters) {
                 b.append("• ");
@@ -187,12 +190,11 @@ public final class SplitCore {
             ui.log(String.format(Locale.GERMANY, "Grenzen pro Teil: %.0f MB (Ziel ≤ %s), %d Seiten",
                     s.maxMb, human(s.maxBytes()), s.maxPages));
 
+            ui.log("Analysiere Seiten (Bilder, Schriften, Inhalte) …");
+            indexPages();
             List<Chapter> chapters = findChapters();
             result.chapters = chapters.size();
             ui.log("Kapitel erkannt über: " + chapterSource + " – " + chapters.size() + " Kapitel");
-
-            ui.log("Analysiere Seiten (Bilder, Schriften, Inhalte) …");
-            indexPages();
 
             List<Part> parts = null;
             for (int attempt = 0; attempt < 6; attempt++) {
@@ -279,33 +281,54 @@ public final class SplitCore {
         return new ArrayList<Chapter>(Collections.singletonList(all));
     }
 
-    private List<Chapter> chaptersFromOutline() {
+    private List<Chapter> chaptersFromOutline() throws IOException {
         try {
             PDDocumentOutline outline = doc.getDocumentCatalog().getDocumentOutline();
             if (outline == null) return Collections.emptyList();
             List<Chapter> tree = buildTree(outline.children(), 0);
             if (tree.isEmpty()) return tree;
             int level = s.chapterLevel;
-            if (level <= 0) {
-                level = 1;
-                List<Chapter> nodes = tree;
-                while (nodes.size() <= 2) {
-                    List<Chapter> next = new ArrayList<Chapter>();
-                    boolean any = false;
-                    for (Chapter c : nodes) {
-                        if (!c.children.isEmpty()) { next.addAll(c.children); any = true; } else next.add(c);
-                    }
-                    if (!any || next.size() <= nodes.size()) break;
-                    nodes = next; level++;
-                }
-                ui.log("Kapitel-Ebene automatisch gewählt: " + level);
-            }
+            if (level <= 0) level = bestLevel(outline, depth(tree));
             List<Chapter> flat = flatten(tree, level);
             return assignRanges(flat, 0, pages.size() - 1);
+        } catch (CancelledException e) {
+            throw e;
         } catch (Exception e) {
             ui.log("Lesezeichen nicht lesbar: " + e.getMessage());
             return Collections.emptyList();
         }
+    }
+
+    private static int depth(List<Chapter> t) {
+        int d = 0;
+        for (Chapter c : t) d = Math.max(d, 1 + depth(c.children));
+        return d;
+    }
+
+    /** Probiert die Lesezeichen-Ebenen durch und wählt die beste Aufteilung:
+     *  möglichst wenige mitten im Kapitel geteilte Kapitel, dann möglichst wenige Teile. */
+    private int bestLevel(PDDocumentOutline outline, int maxDepth) throws IOException {
+        int best = 1;
+        long bestScore = Long.MAX_VALUE;
+        int tries = Math.min(4, Math.max(1, maxDepth));
+        StringBuilder note = new StringBuilder();
+        for (int lvl = 1; lvl <= tries; lvl++) {
+            List<Chapter> t = buildTree(outline.children(), 0);
+            List<Chapter> ch = assignRanges(flatten(t, lvl), 0, pages.size() - 1);
+            List<String> saved = new ArrayList<String>(result.warnings);
+            List<Part> parts = pack(buildUnits(ch));
+            result.warnings.clear();
+            result.warnings.addAll(saved);
+            Set<List<String>> cut = new HashSet<List<String>>();
+            for (Part p : parts) for (Unit u : p.units) if (u.pieces > 1) cut.add(u.path);
+            long score = cut.size() * 1000L + parts.size() + (ch.size() <= 2 && lvl < tries ? 500 : 0);
+            note.append("Ebene ").append(lvl).append(": ").append(ch.size()).append(" Kapitel → ")
+                .append(parts.size()).append(" Teile, ").append(cut.size()).append(" Kapitel geteilt\n");
+            if (score < bestScore) { bestScore = score; best = lvl; }
+        }
+        planNote = note.toString() + "→ gewählt: Ebene " + best;
+        ui.log("Automatische Kapitelwahl:\n" + planNote);
+        return best;
     }
 
     private List<Chapter> buildTree(Iterable<PDOutlineItem> items, int depth) {
@@ -377,30 +400,124 @@ public final class SplitCore {
         Pattern.compile("^(einleitung|vorwort|einführung|anhang|literaturverzeichnis|glossar|register|zusammenfassung|fazit|introduction|preface|appendix|bibliography|index|conclusion)\\s*$", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE),
     };
 
+    /** Sammelt pro Seite die ersten Zeilen mit ihrer Schriftgröße. */
+    static final class LineStripper extends PDFTextStripper {
+        final List<String> texts = new ArrayList<String>();
+        final List<Float> sizes = new ArrayList<Float>();
+        final List<Float> allSizes = new ArrayList<Float>();
+        private final StringBuilder cur = new StringBuilder();
+        private float curMax = 0;
+        LineStripper() throws IOException { super(); setSortByPosition(true); }
+        void reset() { texts.clear(); sizes.clear(); cur.setLength(0); curMax = 0; }
+        @Override protected void writeString(String text, List<com.tom_roush.pdfbox.text.TextPosition> tps) throws IOException {
+            if (cur.length() > 0) cur.append(' ');
+            cur.append(text);
+            for (com.tom_roush.pdfbox.text.TextPosition tp : tps) {
+                float f = tp.getFontSizeInPt();
+                if (f <= 1.01f) f = tp.getHeightDir();
+                if (f > curMax) curMax = f;
+                if (!Character.isWhitespace(tp.getUnicode().isEmpty() ? ' ' : tp.getUnicode().charAt(0))) allSizes.add(f);
+            }
+        }
+        private void flush() {
+            String t = cur.toString().replaceAll("\\s+", " ").trim();
+            if (!t.isEmpty() && texts.size() < 6) { texts.add(t); sizes.add(curMax); }
+            cur.setLength(0); curMax = 0;
+        }
+        @Override protected void writeLineSeparator() { flush(); }
+        @Override protected void writeParagraphEnd() { flush(); }
+        @Override protected void writePageEnd() { flush(); }
+        @Override protected void writeWordSeparator() { }
+        @Override protected void writeString(String text) { }
+    }
+
+    private static float median(List<Float> v) {
+        if (v.isEmpty()) return 0;
+        List<Float> c = new ArrayList<Float>(v);
+        Collections.sort(c);
+        return c.get(c.size() / 2);
+    }
+
+    /**
+     * Automatische Kapitelerkennung ohne Lesezeichen:
+     * 1. typische Überschriften („Kapitel 3 …“, „2 Methoden“, „Einleitung“ …)
+     * 2. deutlich größere Schrift oben auf der Seite als der Fließtext
+     * Wiederkehrende Kopfzeilen werden ausgefiltert. Titel stammen immer wörtlich aus der PDF.
+     */
     private List<Chapter> chaptersFromHeadings() throws IOException {
-        List<Chapter> found = new ArrayList<Chapter>();
-        PDFTextStripper st = new PDFTextStripper();
-        int empty = 0, n = pages.size();
+        int n = pages.size();
+        LineStripper st = new LineStripper();
+        List<List<String>> pageTexts = new ArrayList<List<String>>();
+        List<List<Float>> pageSizes = new ArrayList<List<Float>>();
+        List<Float> sample = new ArrayList<Float>();
+        int empty = 0;
         for (int i = 0; i < n; i++) {
             checkCancel();
-            if (i % 50 == 0) ui.progress(i, n);
-            String text;
+            if (i % 25 == 0) ui.progress(i, n);
+            st.reset();
+            st.allSizes.clear();
             try {
                 st.setStartPage(i + 1); st.setEndPage(i + 1);
-                text = st.getText(doc);
-            } catch (Exception e) { text = ""; }
-            List<String> lines = new ArrayList<String>();
-            for (String l : text.split("\\r?\\n")) { l = l.trim(); if (!l.isEmpty()) lines.add(l); if (lines.size() >= 4) break; }
-            if (lines.isEmpty()) {
+                st.getText(doc);
+            } catch (Exception e) { /* Seite ohne lesbaren Text */ }
+            pageTexts.add(new ArrayList<String>(st.texts));
+            pageSizes.add(new ArrayList<Float>(st.sizes));
+            if (sample.size() < 200000) sample.addAll(st.allSizes);
+            if (st.texts.isEmpty()) {
                 empty++;
-                if (empty >= 30 && empty == i + 1) { ui.log("  Kein Text gefunden (Scan?) – nutze Seitenblöcke."); return Collections.emptyList(); }
-                continue;
+                if (empty >= 30 && empty == i + 1) {
+                    ui.log("  Kein Text gefunden (gescanntes Buch?) – nutze gleich große Seitenblöcke.");
+                    return Collections.emptyList();
+                }
             }
-            outer:
-            for (String l : lines) for (Pattern p : HEADINGS) if (p.matcher(l).matches()) { found.add(new Chapter(clean(l), i)); break outer; }
         }
-        if (found.size() < 2) return Collections.emptyList();
-        return assignRanges(found, 0, n - 1);
+        float body = median(sample);
+        // Kopf-/Fußzeilen: Texte (ohne Ziffern), die auf vielen Seiten vorkommen
+        Map<String, Integer> freq = new HashMap<String, Integer>();
+        for (List<String> lt : pageTexts) {
+            Set<String> seenOnPage = new HashSet<String>();
+            for (String t : lt) seenOnPage.add(norm(t));
+            for (String k : seenOnPage) { Integer c = freq.get(k); freq.put(k, c == null ? 1 : c + 1); }
+        }
+        int repeatLimit = Math.max(4, n / 20);
+        float[] factors = {1.25f, 1.5f, 1.8f};
+        List<Chapter> best = Collections.emptyList();
+        for (float factor : factors) {
+            List<Chapter> found = new ArrayList<Chapter>();
+            for (int i = 0; i < n; i++) {
+                List<String> lt = pageTexts.get(i);
+                List<Float> ls = pageSizes.get(i);
+                for (int j = 0; j < lt.size() && j < 5; j++) {
+                    String t = lt.get(j);
+                    Integer fq = freq.get(norm(t));
+                    boolean numbered = HEADINGS[0].matcher(t).matches();  // „Kapitel 7 …“ ist nie Kopfzeile
+                    if (!numbered && fq != null && fq > repeatLimit) continue;   // Kopf-/Fußzeile
+                    if (t.length() < 2 || t.length() > 90 || t.matches("[0-9 .,:–-]+")) continue;
+                    boolean pattern = false;
+                    for (Pattern p : HEADINGS) if (p.matcher(t).matches()) { pattern = true; break; }
+                    boolean big = body > 0 && ls.get(j) >= body * factor;
+                    if (pattern || big) {
+                        String title = t;
+                        // „Kapitel 3“ + nächste große Zeile „Die Reise“ zusammenfassen
+                        if (j + 1 < lt.size() && t.length() < 20 && body > 0 && ls.get(j + 1) >= body * factor
+                                && lt.get(j + 1).length() <= 80)
+                            title = t + ": " + lt.get(j + 1);
+                        found.add(new Chapter(clean(title), i));
+                        break;
+                    }
+                }
+            }
+            // plausibel: mind. 2 Kapitel und nicht auf fast jeder Seite eine "Überschrift"
+            if (found.size() >= 2 && found.size() <= Math.max(3, n * 0.35)) { best = found; break; }
+            if (found.size() >= 2 && best.isEmpty()) best = found.size() <= n * 0.6 ? found : best;
+        }
+        if (best.size() < 2) return Collections.emptyList();
+        ui.log("  " + best.size() + " Überschriften erkannt (Fließtext ≈ " + Math.round(body) + " pt).");
+        return assignRanges(best, 0, n - 1);
+    }
+
+    private static String norm(String t) {
+        return t.toLowerCase(Locale.ROOT).replaceAll("\\b[0-9]+\\b", "#").replaceAll("\\s+", " ").trim();
     }
 
     // ================================================================== Objektgraph

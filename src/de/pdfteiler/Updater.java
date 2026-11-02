@@ -30,7 +30,7 @@ import java.net.URL;
  */
 final class Updater {
     static final String REPO = "entenmannmarkus-dev/pdf-teiler";
-    static final String UPDATE_URL = "https://raw.githubusercontent.com/" + REPO + "/main/update.json";
+    static String UPDATE_URL = "https://raw.githubusercontent.com/" + REPO + "/main/update.json";
     static final String ACTION_STATUS = "de.pdfteiler.INSTALL_STATUS";
     private static final int FLAG_MUTABLE = 0x02000000; // PendingIntent.FLAG_MUTABLE (API 31)
 

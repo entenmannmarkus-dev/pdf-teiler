@@ -1,6 +1,6 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
+  "versionCode": 6,
+  "versionName": "1.5",
   "apkUrl": "https://github.com/entenmannmarkus-dev/pdf-teiler/releases/latest/download/Splitt-Tool.apk",
-  "notes": "Neu: Teile direkt aus der App teilen (z. B. an die Claude-App)."
+  "notes": "Neu: automatische Kapitelwahl mit Empfehlung, Überschriften-Erkennung per Schriftgröße, Feld für Verbesserungsvorschläge."
 }
