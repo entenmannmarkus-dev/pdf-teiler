@@ -5,7 +5,7 @@ Seiten werden 1:1 übernommen, nichts wird verändert oder erfunden; jeder Teil 
 mit dem Original verglichen.
 
 - **Android-App:** die neueste APK gibt es unter
-  [Releases → neueste Version](https://github.com/entenmannmarkus-dev/pdf-teiler/releases/latest).
+  Ordner [`dist/`](dist/) (die Datei mit der höchsten Versionsnummer).
   Die App kann sich über den Knopf „Nach Update suchen“ selbst aktualisieren.
 - **PC-Werkzeug (Windows/Mac/Linux):** Ordner [`pc-tool/`](pc-tool/README.md).
 
