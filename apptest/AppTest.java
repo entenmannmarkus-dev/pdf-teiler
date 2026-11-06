@@ -18,6 +18,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.ImageView;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -367,6 +368,70 @@ public class AppTest {
         Thread.sleep(500); ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
         System.out.println("NACH SENDEN:\n" + screen(t) + " kinder=" + ((android.widget.LinearLayout) field(t, "msgBox")).getChildCount());
         assertTrue(screen(t).contains("Teile kommen gleich <ok>"));
+    }
+
+    /** PDF-Ansicht: Seite erscheint, Knöpfe und Leiste rechts blättern. */
+    @Test public void pdfViewerPagesAndNavBar() throws Exception {
+        File out = new File("/tmp/claude-0/robo/out"); deleteTree(out); out.mkdirs();
+        MainActivity a = start(out);
+        File pdf = new File(out, "buch.pdf");
+        java.nio.file.Files.copy(new File("/tmp/claude-0/t/verschachtelt.pdf").toPath(), pdf.toPath());
+        Uri pdfUri = DocumentsContract.buildDocumentUri(AUTH, "buch.pdf");
+        java.lang.reflect.Method setPdf = MainActivity.class.getDeclaredMethod("setPdf", Uri.class);
+        setPdf.setAccessible(true);
+        setPdf.invoke(a, pdfUri);
+        final PdfViewer v = (PdfViewer) field(a, "viewer");
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() throws Exception {
+            return ((ImageView) findFirst(v, ImageView.class)).getDrawable() != null;
+        }}, 120);
+        String pos = posText(v);
+        System.out.println("VIEWER START: " + pos);
+        assertTrue(pos.startsWith("Seite 1 / "));
+        int pages = Integer.parseInt(pos.substring(pos.indexOf('/') + 2).trim());
+        assertTrue(pages > 1);
+
+        // „Weiter“-Knopf
+        buttonIn(a, "Weiter").performClick();
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() { return posText(v).startsWith("Seite 2 /"); }}, 30);
+        System.out.println("NACH WEITER: " + posText(v));
+        assertTrue(posText(v).startsWith("Seite 2 /"));
+
+        // Leiste: Tippen in die Mitte springt in die Mitte des Dokuments
+        PdfViewer.NavBar bar = (PdfViewer.NavBar) field(v, "bar");
+        bar.layout(0, 0, 48, 800);
+        float mid = 400f;
+        bar.onTouchEvent(android.view.MotionEvent.obtain(0, 0, android.view.MotionEvent.ACTION_DOWN, 24f, mid, 0));
+        int expect = Math.round(((mid - 14f) / (800f - 28f)) * (pages - 1));   // Seitenindex, Anzeige ist +1
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() { return posText(v).startsWith("Seite " + (expect + 1) + " /"); }}, 30);
+        System.out.println("LEISTE MITTE: " + posText(v) + " (erwartet Seite " + (expect + 1) + ")");
+        assertTrue(posText(v).startsWith("Seite " + (expect + 1) + " /"));
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() throws Exception {
+            return ((ImageView) findFirst(v, ImageView.class)).getDrawable() != null;
+        }}, 60);
+
+        // Leiste: ganz unten = letzte Seite
+        bar.onTouchEvent(android.view.MotionEvent.obtain(0, 0, android.view.MotionEvent.ACTION_MOVE, 24f, 800f, 0));
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() { return posText(v).startsWith("Seite " + pages + " /"); }}, 30);
+        System.out.println("LEISTE UNTEN: " + posText(v));
+        assertTrue(posText(v).startsWith("Seite " + pages + " /"));
+        // „Zurück“ am Ende bleibt im Bereich
+        buttonIn(a, "Zurück").performClick();
+        waitFor(new java.util.concurrent.Callable<Boolean>() { public Boolean call() { return posText(v).startsWith("Seite " + (pages - 1) + " /"); }}, 30);
+        assertTrue(posText(v).startsWith("Seite " + (pages - 1) + " /"));
+    }
+
+    static String posText(PdfViewer v) {
+        View p = v.findViewWithTag("pos");
+        return p == null ? "" : ((TextView) p).getText().toString();
+    }
+
+    static View findFirst(View v, Class<?> c) {
+        if (c.isInstance(v)) return v;
+        if (v instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++) {
+            View r = findFirst(((ViewGroup) v).getChildAt(i), c);
+            if (r != null) return r;
+        }
+        return null;
     }
 
     static void collect(View v, Class<?> c, List<View> out) {

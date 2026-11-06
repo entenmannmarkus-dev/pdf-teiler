@@ -1,13 +1,13 @@
 {
-  "versionCode": 16,
-  "versionName": "2.5",
-  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-2.5.apk",
-  "notes": "Neu: Splitt-Tool für Windows (ohne Adminrechte). Android unverändert.",
+  "versionCode": 17,
+  "versionName": "2.6",
+  "apkUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/Splitt-Tool-2.6.apk",
+  "notes": "PDF durchblättern: Seitenvorschau mit Knöpfen Zurück/Weiter und einer Leiste rechts. Ein Tipp oder Wischen auf der Leiste springt an jede Stelle, Striche markieren die Kapitelanfänge.",
   "windows": {
-    "versionCode": 16,
-    "versionName": "2.5",
-    "notes": "Neu: Splitt-Tool für Windows (ohne Adminrechte). Android unverändert.",
-    "jarUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/windows/splitt-tool-16.jar",
+    "versionCode": 17,
+    "versionName": "2.6",
+    "notes": "PDF durchblättern: Seitenvorschau mit Knöpfen Zurück/Weiter und einer Leiste rechts. Ein Tipp oder Wischen auf der Leiste springt an jede Stelle, Striche markieren die Kapitelanfänge.",
+    "jarUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/windows/splitt-tool-17.jar",
     "zipUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/windows/Splitt-Tool-Windows.zip"
   }
 }

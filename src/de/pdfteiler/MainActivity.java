@@ -175,6 +175,7 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout previewCard, previewBody;
+    private PdfViewer viewer;
     private ScrollView outerScroll;
 
     private void buildUi() {
@@ -214,6 +215,11 @@ public class MainActivity extends Activity {
         previewCard.addView(previewBody);
         TextView ph = label(previewBody, "Wähle eine PDF – die Kapitel und die geplanten Teile erscheinen dann automatisch hier.", 14, false);
         ph.setTextColor(MUTED);
+
+        // PDF durchblättern: Seite, Knöpfe und Leiste rechts
+        LinearLayout viewCard = card(root, "📖  PDF durchblättern", 0);
+        viewer = new PdfViewer(this);
+        viewCard.addView(viewer);
 
         // Einstellungen
         LinearLayout set = card(root, "⚙  Grenzen pro Teil", 0);
@@ -415,6 +421,12 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onDestroy() {
+        if (viewer != null) viewer.close();
+        super.onDestroy();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         long now = System.currentTimeMillis();
@@ -486,6 +498,7 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) {
         } finally { if (c != null) c.close(); }
         tvPdf.setText(pdfName + (pdfSize >= 0 ? "  (" + SplitCore.human(pdfSize) + ")" : ""));
+        viewer.open(getContentResolver(), u, getCacheDir());
         if (worker == null || !worker.isAlive()) start(true);   // Kapitel-Vorschau automatisch
     }
 
@@ -574,6 +587,16 @@ public class MainActivity extends Activity {
     /** Zeigt Kapitel und geplante Teile als Kästen im Hauptfenster. */
     private void renderPreview(SplitCore.PreviewData pd) {
         previewBody.removeAllViews();
+        // Kapitelanfänge für die Striche an der Leiste (aus „S. 12–40“)
+        int[] starts = new int[pd.chapters.size()];
+        int ns = 0;
+        for (String[] c : pd.chapters) {
+            try {
+                String r = c[1].replace("S.", "").trim();
+                starts[ns++] = Integer.parseInt(r.split("[–-]")[0].trim());
+            } catch (Exception ignored) { }
+        }
+        viewer.setChapterPages(java.util.Arrays.copyOf(starts, ns));
         TextView info = label(previewBody, pdfName + " · " + pd.pages + " Seiten · " + pd.chapters.size()
                 + " Kapitel\nErkannt über: " + pd.source, 14, false);
         info.setTextColor(MUTED);
