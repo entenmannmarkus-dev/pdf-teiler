@@ -29,7 +29,7 @@ printf 'Main-Class: de.pdfteiler.desktop.SplittTool\nImplementation-Version: %s\
 jar cfm $W/splitt-tool-$VERSION_CODE.jar $W/manifest.txt -C $W/classes .
 ls -la $W/splitt-tool-$VERSION_CODE.jar
 
-if [ "$1" = "--zip" ]; then
+if [ "$1" = "--zip" ] || [ "$1" = "--setup" ]; then
   JRE=${JRE_ZIP:-$HOME/.cache/splitt-tool/jre-windows.zip}
   if [ ! -f "$JRE" ]; then
     mkdir -p "$(dirname "$JRE")"
@@ -44,4 +44,11 @@ if [ "$1" = "--zip" ]; then
   (cd $W && unzip -q "$JRE" && mv jdk-*-jre Splitt-Tool/runtime)
   (cd $W && rm -f Splitt-Tool-Windows.zip && zip -qr9 Splitt-Tool-Windows.zip Splitt-Tool)
   ls -la $W/Splitt-Tool-Windows.zip
+fi
+
+# Installationsprogramm (NSIS): Splitt-Tool-Setup.exe, installiert ohne Adminrechte für den aktuellen Benutzer
+if [ "$1" = "--setup" ]; then
+  command -v makensis >/dev/null || { echo "makensis fehlt (apt-get install nsis)"; exit 1; }
+  (cd windows && makensis -V2 -DVERSION="$VERSION_NAME" -DSRC="../$W/Splitt-Tool" -DOUT="../$W/Splitt-Tool-Setup.exe" installer.nsi)
+  ls -la $W/Splitt-Tool-Setup.exe
 fi

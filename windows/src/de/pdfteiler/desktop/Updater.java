@@ -9,8 +9,8 @@ import java.net.URL;
 import java.nio.file.*;
 
 /**
- * Update über GitHub: liest update.json (Abschnitt „windows“), lädt die neue Programmdatei
- * in den eigenen Ordner (Benutzerprofil, keine Adminrechte) und startet neu.
+ * Update-Hinweis über GitHub: liest update.json (Abschnitt „windows“), färbt den Knopf rot und
+ * öffnet auf Wunsch den Download des neuen Installationsprogramms im Browser (kein Selbst-Update).
  */
 final class Updater {
     static String API_URL = "https://api.github.com/repos/" + SplittTool.REPO + "/contents/update.json?ref=main";
@@ -53,7 +53,7 @@ final class Updater {
                     String notes = w.optString("notes", "");
                     if (SplittTool.testMode) { download(w); return; }
                     int ok = JOptionPane.showConfirmDialog(app.frame, (notes.isEmpty() ? "" : notes + "\n\n")
-                            + "Jetzt herunterladen und installieren? Das Programm startet danach neu.",
+                            + "Neues Installationsprogramm jetzt im Browser herunterladen?",
                             "Neue Version " + w.optString("versionName"), JOptionPane.YES_NO_OPTION);
                     if (ok == JOptionPane.YES_OPTION) download(w);
                 });
@@ -64,42 +64,25 @@ final class Updater {
         }, "update-check").start();
     }
 
-    void download(JSONObject w) {
-        app.status.setText("Lade Update …");
-        new Thread(() -> {
-            try {
-                int code = w.getInt("versionCode");
-                File dir = appDir();
-                dir.mkdirs();
-                File part = new File(dir, "splitt-tool-" + code + ".jar.part");
-                File done = new File(dir, "splitt-tool-" + code + ".jar");
-                try (InputStream in = open(w.getString("jarUrl"), null).getInputStream();
-                     OutputStream out = new FileOutputStream(part)) {
-                    in.transferTo(out);
-                }
-                try (java.util.jar.JarFile check = new java.util.jar.JarFile(part)) {
-                    if (check.getEntry("de/pdfteiler/desktop/SplittTool.class") == null) throw new IOException("Download unvollständig.");
-                }
-                Files.move(part.toPath(), done.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                SwingUtilities.invokeLater(() -> {
-                    app.status.setText("Update geladen");
-                    restart();
-                });
-            } catch (Exception e) {
-                SwingUtilities.invokeLater(() -> { app.status.setText(" "); app.info("Update fehlgeschlagen", String.valueOf(e.getMessage())); });
-            }
-        }, "update-download").start();
-    }
+    /** Zuletzt geöffnete Download-Adresse (für Tests). */
+    static volatile String lastOpenedUrl;
 
-    void restart() {
-        String exe = System.getProperty("splitt.exe");
-        if (exe != null && new File(exe).isFile()) {
-            try {
-                new ProcessBuilder(exe).start();
-                System.exit(0);
-            } catch (IOException ignored) { }
+    /**
+     * Kein Selbst-Update: Das Programm verändert sich nicht selbst. Es öffnet nur die Download-Seite
+     * des neuen Installationsprogramms im Browser. Installiert wird erst, wenn man die Datei selbst startet.
+     */
+    void download(JSONObject w) {
+        String url = w.optString("setupUrl", w.optString("zipUrl", "https://github.com/" + SplittTool.REPO));
+        lastOpenedUrl = url;
+        if (SplittTool.testMode) { System.out.println("BROWSER " + url); return; }
+        try {
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
+            app.info("Update im Browser", "Der Browser lädt jetzt das neue Installationsprogramm.\n\n"
+                    + "Danach: Splitt-Tool schließen, die heruntergeladene Datei „Splitt-Tool-Setup.exe“ öffnen\n"
+                    + "und den Schritten folgen. Deine Einstellungen bleiben erhalten.");
+        } catch (Exception e) {
+            app.info("Browser nicht geöffnet", "Bitte diese Adresse im Browser öffnen:\n" + url);
         }
-        app.info("Update installiert", "Bitte das Splitt-Tool schließen und neu starten.");
     }
 
     /** Alte Programmdateien aufräumen (die laufende bleibt). */

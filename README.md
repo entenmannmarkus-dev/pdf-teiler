@@ -7,6 +7,9 @@ mit dem Original verglichen.
 - **Android-App:** die neueste APK gibt es unter
   Ordner [`dist/`](dist/) (die Datei mit der höchsten Versionsnummer).
   Die App kann sich über den Knopf „Nach Update suchen“ selbst aktualisieren.
+- **Windows-App:** [`dist/windows/Splitt-Tool-Setup.exe`](dist/windows/Splitt-Tool-Setup.exe)
+  herunterladen und doppelklicken. Installiert ohne Adminrechte, Java ist enthalten
+  (Anleitung: [`windows/LIESMICH.txt`](windows/LIESMICH.txt)).
 - **PC-Werkzeug (Windows/Mac/Linux):** Ordner [`pc-tool/`](pc-tool/README.md).
 
 ## Funktionen der App

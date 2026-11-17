@@ -8,6 +8,7 @@
     "versionName": "2.6",
     "notes": "PDF durchblättern: Seitenvorschau mit Knöpfen Zurück/Weiter und einer Leiste rechts. Ein Tipp oder Wischen auf der Leiste springt an jede Stelle, Striche markieren die Kapitelanfänge.",
     "jarUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/windows/splitt-tool-17.jar",
-    "zipUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/windows/Splitt-Tool-Windows.zip"
+    "zipUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/windows/Splitt-Tool-Windows.zip",
+    "setupUrl": "https://raw.githubusercontent.com/entenmannmarkus-dev/pdf-teiler/main/dist/windows/Splitt-Tool-Setup.exe"
   }
 }

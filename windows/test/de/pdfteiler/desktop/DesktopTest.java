@@ -50,16 +50,12 @@ public class DesktopTest {
         check(new File(out, "00_CLAUDE_PROJEKT.md").isFile(), "Quellen-Karte geschrieben");
         SwingUtilities.invokeAndWait(() -> t.frame.getContentPane().validate());
         shot(t, a[2] + "/2_fertig.png");
-        // Update: lädt neue Programmdatei in app\ (splitt.home = Testordner)
+        // Update: nur Hinweis + Browser-Link zum Installationsprogramm, kein Selbst-Update
         t.updater.check(false);
-        File jar = null;
-        for (int i = 0; i < 100 && jar == null; i++) {
-            Thread.sleep(100);
-            File[] js = Updater.appDir().listFiles((d, n) -> n.equals("splitt-tool-99.jar"));
-            if (js != null && js.length == 1) jar = js[0];
-        }
-        Thread.sleep(500);
-        check(jar != null && jar.length() > 100000, "Update geladen: " + jar);
+        for (int i = 0; i < 100 && Updater.lastOpenedUrl == null; i++) Thread.sleep(100);
+        check(Updater.lastOpenedUrl != null && Updater.lastOpenedUrl.endsWith("Splitt-Tool-Setup.exe"), "Update öffnet Download im Browser: " + Updater.lastOpenedUrl);
+        File[] js = Updater.appDir().listFiles((d, n) -> n.equals("splitt-tool-99.jar"));
+        check(js == null || js.length == 0, "Programm verändert sich nicht selbst");
         System.out.println("LETZTE MELDUNG " + SplittTool.lastInfo);
         System.exit(0);
     }
